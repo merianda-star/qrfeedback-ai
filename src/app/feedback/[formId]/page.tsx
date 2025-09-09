@@ -228,14 +228,15 @@ export default function FeedbackPage() {
           <div className="space-y-3 mb-6">
             {isFormOwner ? (
               <>
-                
-                  href="/dashboard"
+		  <a 
+		  href="/dashboard"
                   className="block w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
                   View Dashboard
                 </a>
                 
-                  href={`/dashboard/forms/${form?.id}/responses`}
+                <a
+		href={`/dashboard/forms/${form?.id}/responses`}
                   className="block w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
                 >
                   View All Responses
@@ -269,7 +270,7 @@ export default function FeedbackPage() {
                   Go Back
                 </button>
                 
-                
+               <a 
                   href="/"
                   className="block w-full bg-green-100 text-green-700 py-3 px-4 rounded-lg font-semibold hover:bg-green-200 transition-colors"
                 >

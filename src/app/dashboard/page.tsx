@@ -1,17 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPlanLimits } from '@/lib/utils'
-import { Plus, QrCode, Eye, Edit, Trash2, BarChart3, User, LogOut } from 'lucide-react'
+import { Plus, QrCode, Edit, Trash2, BarChart3, LogOut } from 'lucide-react'
+
+interface Question {
+  id: string
+  type: string
+  text: string
+  options?: string[]
+}
 
 interface Form {
   id: string
   title: string
   description: string
-  questions: any[]
+  questions: Question[]
   created_at: string
 }
 
@@ -22,8 +29,14 @@ interface Profile {
   plan: string
 }
 
+interface AuthUser {
+  id: string
+  email?: string
+}
+
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [forms, setForms] = useState<Form[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,12 +47,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    checkUser()
-    loadForms()
-  }, [])
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
@@ -47,9 +55,8 @@ export default function DashboardPage() {
       return
     }
 
-    setUser(user)
+    setUser(user as AuthUser)
 
-    // Load user profile
     const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
@@ -61,9 +68,9 @@ export default function DashboardPage() {
     }
 
     setLoading(false)
-  }
+  }, [supabase, router])
 
-  const loadForms = async () => {
+  const loadForms = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return
@@ -77,7 +84,12 @@ export default function DashboardPage() {
     if (formsData) {
       setForms(formsData)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    checkUser()
+    loadForms()
+  }, [checkUser, loadForms])
 
   const createForm = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,15 +97,14 @@ export default function DashboardPage() {
 
     setCreating(true)
 
-    // Check plan limits
     const limits = getPlanLimits(profile?.plan || 'free')
-    if (limits.forms !== 'unlimited' && forms.length >= limits.forms) {
+    if (limits.forms !== 'unlimited' && typeof limits.forms === 'number' && forms.length >= limits.forms) {
       alert(`Free plan allows only ${limits.forms} forms. Please upgrade to create more!`)
       setCreating(false)
       return
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('forms')
       .insert([
         {
@@ -154,7 +165,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -180,15 +190,12 @@ export default function DashboardPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Plan Limits Banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
           <div className="flex items-center justify-between">
             <div>
-
-	    <h3 className="font-semibold text-blue-900">
-	    {(profile?.plan || 'free') === 'free' ? 'Free Plan' : `${profile?.plan || 'Free'} Plan`}
-	    </h3>  
-
+              <h3 className="font-semibold text-blue-900">
+                {(profile?.plan || 'free') === 'free' ? 'Free Plan' : `${profile?.plan || 'Free'} Plan`}
+              </h3>  
               <p className="text-blue-700 text-sm">
                 {forms.length}/{planLimits.forms === 'unlimited' ? '∞' : planLimits.forms} forms used
               </p>
@@ -204,7 +211,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Dashboard Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
@@ -219,7 +225,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Forms Grid */}
         {forms.length === 0 ? (
           <div className="text-center py-12">
             <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -274,7 +279,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Create Form Modal */}
       {showCreateForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -302,7 +306,7 @@ export default function DashboardPage() {
                     value={newFormDescription}
                     onChange={(e) => setNewFormDescription(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Brief description of what feedback you're collecting"
+                    placeholder="Brief description of what feedback you are collecting"
                     rows={3}
                   />
                 </div>

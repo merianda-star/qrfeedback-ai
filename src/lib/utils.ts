@@ -46,7 +46,7 @@ export function isWithinPlanLimits(plan: string, currentForms: number, currentRe
   const limits = getPlanLimits(plan)
   
   const formsOk = limits.forms === 'unlimited' || currentForms < (limits.forms as number)
-  const responsesOk = limits.responses === 'unlimited' || currentResponses < (limits.responses as number)
+  const responsesOk = currentResponses < (limits.responses as number)
   
   return { formsOk, responsesOk, limits }
 }
