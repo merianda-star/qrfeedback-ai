@@ -7,13 +7,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js']
-  },
-  // Force dynamic rendering for auth pages
-  async rewrites() {
-    return []
-  }
+  serverExternalPackages: ['@supabase/supabase-js']
 };
 
 export default nextConfig;

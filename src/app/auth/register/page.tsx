@@ -1,9 +1,9 @@
+'use client'
+
 import dynamic from 'next/dynamic'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
-
-'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
