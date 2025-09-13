@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { generateQRData } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2, QrCode, Download, Eye, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, QrCode, Download, Eye, Save, Info, Star, MessageSquare, CheckSquare } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 
 interface Question {
@@ -31,6 +31,7 @@ export default function FormBuilderPage() {
   const [saving, setSaving] = useState(false)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [showQRModal, setShowQRModal] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(true)
   const [newQuestion, setNewQuestion] = useState({
     type: 'rating' as 'rating' | 'text' | 'multiple',
     text: '',
@@ -41,6 +42,9 @@ export default function FormBuilderPage() {
   useEffect(() => {
     loadForm()
   }, [])
+
+  // Check if this is the user's first time (no questions added)
+  const isFirstTime = form?.questions.length === 0
 
   const loadForm = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -78,6 +82,15 @@ export default function FormBuilderPage() {
 
     if (error) {
       alert('Error saving form: ' + error.message)
+    } else {
+      // Show success feedback
+      const saveButton = document.querySelector('[data-save-button]')
+      if (saveButton) {
+        saveButton.textContent = 'Saved!'
+        setTimeout(() => {
+          saveButton.textContent = 'Save'
+        }, 2000)
+      }
     }
 
     setSaving(false)
@@ -105,6 +118,11 @@ export default function FormBuilderPage() {
       text: '',
       options: ['']
     })
+
+    // Hide instructions after first question is added
+    if (isFirstTime) {
+      setShowInstructions(false)
+    }
   }
 
   const deleteQuestion = (questionId: string) => {
@@ -168,15 +186,31 @@ export default function FormBuilderPage() {
     })
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading form builder...</p>
+  // Loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="min-h-screen bg-gray-50">
+      <div className="animate-pulse">
+        <div className="bg-white h-16 border-b mb-8"></div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-lg p-6 mb-8">
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+          <div className="bg-white rounded-lg p-6 mb-8">
+            <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="space-y-4">
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-10 bg-gray-200 rounded w-1/4"></div>
+            </div>
+          </div>
         </div>
       </div>
-    )
+    </div>
+  )
+
+  if (loading) {
+    return <LoadingSkeleton />
   }
 
   if (!form) {
@@ -192,6 +226,24 @@ export default function FormBuilderPage() {
     )
   }
 
+  const getQuestionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'rating': return <Star className="w-4 h-4" />
+      case 'text': return <MessageSquare className="w-4 h-4" />
+      case 'multiple': return <CheckSquare className="w-4 h-4" />
+      default: return null
+    }
+  }
+
+  const getQuestionTypeDescription = (type: string) => {
+    switch (type) {
+      case 'rating': return 'Customers rate from 1-5 stars'
+      case 'text': return 'Customers write detailed responses'
+      case 'multiple': return 'Customers select from predefined options'
+      default: return ''
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -203,12 +255,16 @@ export default function FormBuilderPage() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Link>
-              <h1 className="text-xl font-semibold text-gray-900">{form.title}</h1>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">{form.title}</h1>
+                <p className="text-sm text-gray-500">Form Builder</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <button
                 onClick={saveForm}
                 disabled={saving}
+                data-save-button
                 className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
@@ -216,7 +272,9 @@ export default function FormBuilderPage() {
               </button>
               <button
                 onClick={generateQR}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                disabled={form.questions.length === 0}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                title={form.questions.length === 0 ? "Add questions first to generate QR code" : "Generate QR code"}
               >
                 <QrCode className="w-4 h-4" />
                 Generate QR
@@ -227,57 +285,135 @@ export default function FormBuilderPage() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Instructions for new users */}
+        {isFirstTime && showInstructions && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <div className="flex items-start">
+              <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">Welcome to your Form Builder!</h3>
+                <p className="text-blue-800 mb-4">
+                  Your form has been created with the title and description. Now you need to add questions that your customers will answer.
+                </p>
+                <div className="space-y-2 text-sm text-blue-700">
+                  <p><strong>Step 1:</strong> Choose a question type (Rating, Text, or Multiple Choice)</p>
+                  <p><strong>Step 2:</strong> Write your question</p>
+                  <p><strong>Step 3:</strong> Add answer options (for Multiple Choice only)</p>
+                  <p><strong>Step 4:</strong> Click "Add Question" to save it</p>
+                  <p><strong>Step 5:</strong> Generate your QR code when ready!</p>
+                </div>
+                <button 
+                  onClick={() => setShowInstructions(false)}
+                  className="mt-4 text-blue-600 text-sm hover:text-blue-700"
+                >
+                  Got it, hide this
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Form Info */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">{form.title}</h2>
-          <p className="text-gray-600">{form.description || 'No description'}</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">{form.title}</h2>
+              <p className="text-gray-600">{form.description || 'No description'}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-gray-500">Questions added:</div>
+              <div className="text-2xl font-bold text-blue-600">{form.questions.length}</div>
+            </div>
+          </div>
         </div>
 
-        {/* Add Question */}
+        {/* Add Question Section */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Question</h3>
+          <div className="flex items-center mb-4">
+            <Plus className="w-5 h-5 text-blue-600 mr-2" />
+            <h3 className="text-lg font-semibold text-gray-900">Add New Question</h3>
+          </div>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Question Type Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question Type
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Choose Question Type
               </label>
-              <select
-                value={newQuestion.type}
-                onChange={(e) => setNewQuestion({
-                  ...newQuestion,
-                  type: e.target.value as 'rating' | 'text' | 'multiple',
-                  options: e.target.value === 'multiple' ? [''] : []
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="rating">Rating (1-5 stars)</option>
-                <option value="text">Text Response</option>
-                <option value="multiple">Multiple Choice</option>
-              </select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { value: 'rating', label: 'Rating Scale', icon: Star, desc: '1-5 star ratings' },
+                  { value: 'text', label: 'Text Response', icon: MessageSquare, desc: 'Written feedback' },
+                  { value: 'multiple', label: 'Multiple Choice', icon: CheckSquare, desc: 'Select from options' }
+                ].map(({ value, label, icon: Icon, desc }) => (
+                  <label key={value} className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name="questionType"
+                      value={value}
+                      checked={newQuestion.type === value}
+                      onChange={(e) => setNewQuestion({
+                        ...newQuestion,
+                        type: e.target.value as 'rating' | 'text' | 'multiple',
+                        options: e.target.value === 'multiple' ? [''] : []
+                      })}
+                      className="sr-only"
+                    />
+                    <div className={`border-2 rounded-lg p-4 transition-colors ${
+                      newQuestion.type === value 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <div className="flex items-center mb-2">
+                        <Icon className={`w-5 h-5 mr-2 ${
+                          newQuestion.type === value ? 'text-blue-600' : 'text-gray-500'
+                        }`} />
+                        <span className={`font-medium ${
+                          newQuestion.type === value ? 'text-blue-900' : 'text-gray-900'
+                        }`}>
+                          {label}
+                        </span>
+                      </div>
+                      <p className={`text-sm ${
+                        newQuestion.type === value ? 'text-blue-700' : 'text-gray-600'
+                      }`}>
+                        {desc}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-sm text-gray-600">
+                {getQuestionTypeDescription(newQuestion.type)}
+              </p>
             </div>
 
+            {/* Question Text */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Question Text
+                Question Text *
               </label>
               <input
                 type="text"
                 value={newQuestion.text}
                 onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
-                placeholder="Enter your question"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., How would you rate our service?"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
+            {/* Multiple Choice Options */}
             {newQuestion.type === 'multiple' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Answer Options
+                  Answer Options *
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {newQuestion.options.map((option, index) => (
                     <div key={index} className="flex gap-2">
+                      <div className="flex items-center justify-center w-8 h-10 bg-gray-100 rounded text-sm font-medium text-gray-600">
+                        {index + 1}
+                      </div>
                       <input
                         type="text"
                         value={option}
@@ -288,7 +424,8 @@ export default function FormBuilderPage() {
                       {newQuestion.options.length > 1 && (
                         <button
                           onClick={() => removeOption(index)}
-                          className="text-red-600 hover:text-red-700 p-2"
+                          className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded"
+                          title="Remove option"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -297,85 +434,125 @@ export default function FormBuilderPage() {
                   ))}
                   <button
                     onClick={addOption}
-                    className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
+                    className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 px-2 py-1 hover:bg-blue-50 rounded"
                   >
                     <Plus className="w-3 h-3" />
-                    Add Option
+                    Add Another Option
                   </button>
                 </div>
               </div>
             )}
 
-            <button
-              onClick={addQuestion}
-              disabled={!newQuestion.text.trim()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Question
-            </button>
+            {/* Add Question Button */}
+            <div className="flex items-center justify-between pt-4 border-t">
+              <div className="text-sm text-gray-500">
+                {!newQuestion.text.trim() && "Enter question text to continue"}
+                {newQuestion.type === 'multiple' && newQuestion.options.filter(opt => opt.trim()).length < 2 && 
+                  newQuestion.text.trim() && "Add at least 2 options for multiple choice"}
+              </div>
+              <button
+                onClick={addQuestion}
+                disabled={
+                  !newQuestion.text.trim() || 
+                  (newQuestion.type === 'multiple' && newQuestion.options.filter(opt => opt.trim()).length < 2)
+                }
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Question
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Questions List */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Questions ({form.questions.length})
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            Current Questions 
+            <span className="ml-2 bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded">
+              {form.questions.length}
+            </span>
           </h3>
           
           {form.questions.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
-              No questions added yet. Add your first question above.
-            </p>
+            <div className="text-center py-12">
+              <div className="bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 mb-2">No questions added yet</p>
+              <p className="text-sm text-gray-400">Add your first question above to get started</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {form.questions.map((question, index) => (
-                <div key={question.id} className="border border-gray-200 rounded-lg p-4">
+                <div key={question.id} className="border border-gray-200 rounded-lg p-5 hover:border-gray-300 transition-colors">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
-                          Q{index + 1}
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded">
+                          Question {index + 1}
                         </span>
-                        <span className="text-xs text-gray-500 uppercase">
-                          {question.type === 'rating' ? 'Rating' : 
-                           question.type === 'text' ? 'Text' : 'Multiple Choice'}
-                        </span>
+                        <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {getQuestionTypeIcon(question.type)}
+                          {question.type === 'rating' ? 'Rating Scale' : 
+                           question.type === 'text' ? 'Text Response' : 'Multiple Choice'}
+                        </div>
                       </div>
-                      <p className="text-gray-900 font-medium mb-2">{question.text}</p>
+                      <p className="text-gray-900 font-medium mb-3 text-lg">{question.text}</p>
                       {question.options && (
-                        <div className="text-sm text-gray-600">
-                          Options: {question.options.join(', ')}
+                        <div className="bg-gray-50 rounded p-3">
+                          <p className="text-sm text-gray-600 font-medium mb-2">Answer Options:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {question.options.map((option, idx) => (
+                              <div key={idx} className="flex items-center text-sm text-gray-700">
+                                <div className="w-5 h-5 rounded-full bg-white border border-gray-300 mr-2 flex-shrink-0"></div>
+                                {option}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
                     <button
                       onClick={() => deleteQuestion(question.id)}
-                      className="text-red-600 hover:text-red-700 p-2"
+                      className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded ml-4"
                       title="Delete Question"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </div>
 
-        {/* Actions */}
-        {form.questions.length > 0 && (
-          <div className="mt-8 text-center">
-            <Link
-              href={`/feedback/${form.id}`}
-              target="_blank"
-              className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-semibold"
-            >
-              <Eye className="w-4 h-4" />
-              Preview Form
-            </Link>
-          </div>
-        )}
+          {/* Call to Action */}
+          {form.questions.length > 0 && (
+            <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+              <div className="text-center">
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">Your form is ready!</h4>
+                <p className="text-gray-600 mb-4">Preview your form or generate a QR code to start collecting feedback</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href={`/feedback/${form.id}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-2 bg-white text-blue-600 hover:text-blue-700 font-semibold px-4 py-2 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Preview Form
+                  </Link>
+                  <button
+                    onClick={generateQR}
+                    className="inline-flex items-center gap-2 bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    Generate QR Code
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* QR Code Modal */}
@@ -383,22 +560,22 @@ export default function FormBuilderPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="p-6 text-center">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Your QR Code</h2>
-              <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-4 rounded-lg" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Your QR Code is Ready!</h2>
+              <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-4 rounded-lg shadow-md" />
               <p className="text-gray-600 mb-6">
-                Place this QR code where customers can easily scan it
+                Print this QR code and place it where customers can easily scan it with their phones
               </p>
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={downloadQR}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  Download
+                  Download PNG
                 </button>
                 <button
                   onClick={() => setShowQRModal(false)}
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Close
                 </button>
