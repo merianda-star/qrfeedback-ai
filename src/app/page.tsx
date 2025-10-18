@@ -228,7 +228,7 @@ export default function HomePage() {
                       : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
                 >
-                  {plan.cta}
+                  {plan.priceMonthly === 0 ? 'Get Started Free' : 'Start Free Trial'}
                 </Link>
               </div>
             ))}

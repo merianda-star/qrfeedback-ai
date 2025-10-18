@@ -97,3 +97,4 @@ export function formatPlanName(planName: string): string {
   const plan = getPlanByName(planName)
   return plan ? plan.name : planName.charAt(0).toUpperCase() + planName.slice(1)
 }
+
