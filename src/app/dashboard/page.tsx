@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { getPlanLimits } from '@/lib/utils'
+import { getPlanLimits } from '@/lib/pricing'
 import { Plus, QrCode, Edit, Trash2, BarChart3, LogOut, Crown, User, Home } from 'lucide-react'
 
 interface Question {
@@ -484,3 +484,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+

@@ -1,5 +1,6 @@
+import { PRICING_PLANS } from '@/lib/pricing'
 import Link from 'next/link'
-import { ArrowRight, QrCode, Smartphone, BarChart3, Zap, Check, Menu, X } from 'lucide-react'
+import { ArrowRight, QrCode, Smartphone, BarChart3, Check } from 'lucide-react'
 
 export default function HomePage() {
   return (
@@ -187,117 +188,50 @@ export default function HomePage() {
             Start free and upgrade as you grow. No hidden fees or long-term contracts.
           </p>
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free Plan */}
-            <div className="border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-shadow">
-              <h3 className="text-2xl font-bold mb-2">Free</h3>
-              <div className="text-4xl font-bold mb-6">
-                $0
-                <span className="text-lg text-gray-600 font-normal">/month</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>3 feedback forms</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>50 responses/month</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>QR code generation</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Basic analytics</span>
-                </li>
-              </ul>
-              <Link 
-                href="/auth/register"
-                className="block w-full text-center bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
+            {PRICING_PLANS.map((plan) => (
+              <div
+                key={plan.name}
+                className={`border rounded-lg p-8 hover:shadow-lg transition-shadow ${
+                  plan.popular ? 'border-2 border-blue-600 relative bg-blue-50' : 'border-gray-200'
+                }`}
               >
-                Get Started Free
-              </Link>
-            </div>
-
-            {/* Pro Plan */}
-            <div className="border-2 border-blue-600 rounded-lg p-8 relative hover:shadow-xl transition-shadow bg-blue-50">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                  Most Popular
-                </span>
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                
+                <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                <div className="text-4xl font-bold mb-6">
+                  {plan.price}
+                  <span className="text-lg text-gray-600 font-normal">/month</span>
+                </div>
+                
+                <ul className="space-y-3 mb-8">
+                  {plan.features.slice(0, 5).map((feature, index) => (
+                    <li key={index} className="flex items-center gap-2">
+                      <Check className="w-5 h-5 text-green-500" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                <Link 
+                  href={plan.priceId ? "/pricing" : "/auth/register"}
+                  className={`block w-full text-center py-3 rounded-lg font-semibold transition-colors ${
+                    plan.popular
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : plan.priceId
+                      ? 'bg-gray-600 text-white hover:bg-gray-700'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {plan.cta}
+                </Link>
               </div>
-              <h3 className="text-2xl font-bold mb-2">Pro</h3>
-              <div className="text-4xl font-bold mb-6">
-                $19
-                <span className="text-lg text-gray-600 font-normal">/month</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Unlimited forms</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>1,000 responses/month</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Advanced analytics</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Email notifications</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Priority support</span>
-                </li>
-              </ul>
-              <Link 
-                href="/auth/register"
-                className="block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-              >
-                Start Free Trial
-              </Link>
-            </div>
-
-            {/* Business Plan */}
-            <div className="border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-shadow">
-              <h3 className="text-2xl font-bold mb-2">Business</h3>
-              <div className="text-4xl font-bold mb-6">
-                $49
-                <span className="text-lg text-gray-600 font-normal">/month</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Everything in Pro</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Unlimited responses</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>White-label forms</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>API access</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <span>Phone support</span>
-                </li>
-              </ul>
-              <Link 
-                href="/auth/register"
-                className="block w-full text-center bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
-              >
-                Contact Sales
-              </Link>
-            </div>
+            ))}
           </div>
 
           <div className="text-center mt-12">
