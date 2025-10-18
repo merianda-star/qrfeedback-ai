@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { generateQRData } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2, QrCode, Download, Eye, Save, Info, Star, MessageSquare, CheckSquare } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, QrCode, Download, Eye, Save, Info, Star, MessageSquare, CheckSquare, Crown } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 
 interface Question {
@@ -23,10 +23,15 @@ interface Form {
   user_id: string
 }
 
+interface Profile {
+  plan: string
+}
+
 export default function FormBuilderPage() {
   const params = useParams()
   const router = useRouter()
   const [form, setForm] = useState<Form | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
@@ -52,6 +57,17 @@ export default function FormBuilderPage() {
     if (!user) {
       router.push('/auth/login')
       return
+    }
+
+    // Load user profile for plan info
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (profileData) {
+      setProfile(profileData)
     }
 
     const { data: formData, error } = await supabase
@@ -244,6 +260,8 @@ export default function FormBuilderPage() {
     }
   }
 
+  const planName = profile?.plan || 'free'
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -261,6 +279,15 @@ export default function FormBuilderPage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              {planName === 'free' && (
+                <Link
+                  href="/pricing"
+                  className="hidden sm:flex items-center text-purple-600 hover:text-purple-700 text-sm font-medium"
+                >
+                  <Crown className="w-4 h-4 mr-1" />
+                  Upgrade
+                </Link>
+              )}
               <button
                 onClick={saveForm}
                 disabled={saving}
@@ -553,6 +580,27 @@ export default function FormBuilderPage() {
             </div>
           )}
         </div>
+
+        {/* Upgrade Tip for Free Users */}
+        {planName === 'free' && form.questions.length > 0 && (
+          <div className="mt-8 bg-purple-50 border border-purple-200 rounded-lg p-6">
+            <div className="flex items-start">
+              <Crown className="w-5 h-5 text-purple-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-purple-900 mb-1">Want Advanced Features?</h4>
+                <p className="text-purple-800 text-sm mb-3">
+                  Upgrade to Pro for advanced analytics, unlimited responses, custom branding, and priority support.
+                </p>
+                <Link 
+                  href="/pricing"
+                  className="inline-flex items-center text-purple-600 hover:text-purple-700 font-medium text-sm"
+                >
+                  View pricing plans →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* QR Code Modal */}
