@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPlanLimits } from '@/lib/pricing'
-import { Plus, QrCode, Edit, Trash2, BarChart3, LogOut, Crown, User, Home, AlertCircle } from 'lucide-react'
+import { Plus, QrCode, Edit, Trash2, BarChart3, LogOut, Crown, User, Home, AlertCircle, RefreshCw } from 'lucide-react'
 
 interface Question {
   id: string
@@ -20,7 +20,7 @@ interface Form {
   description: string
   questions: Question[]
   created_at: string
-  user_id?: string
+  user_id: string
 }
 
 interface Profile {
@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [forms, setForms] = useState<Form[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newFormTitle, setNewFormTitle] = useState('')
   const [newFormDescription, setNewFormDescription] = useState('')
@@ -53,59 +54,113 @@ export default function DashboardPage() {
     setTimeout(() => setToast(null), 5000)
   }
 
-  const checkUser = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      router.push('/auth/login')
-      return
+  // Load user and forms on mount
+  useEffect(() => {
+    let mounted = true
+
+    const initialize = async () => {
+      try {
+        console.log('🔄 Initializing dashboard...')
+        
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          console.log('❌ No user found, redirecting to login')
+          router.push('/auth/login')
+          return
+        }
+
+        if (!mounted) return
+
+        console.log('✅ User authenticated:', user.id)
+        setUser(user as AuthUser)
+
+        // Load profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+
+        if (profileError) {
+          console.error('❌ Profile load error:', profileError)
+        } else if (profileData && mounted) {
+          console.log('✅ Profile loaded:', profileData.plan)
+          setProfile(profileData)
+        }
+
+        // Load forms
+        console.log('📋 Loading forms for user:', user.id)
+        const { data: formsData, error: formsError } = await supabase
+          .from('forms')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (formsError) {
+          console.error('❌ Forms load error:', formsError)
+          if (mounted) {
+            showToast('Error loading forms: ' + formsError.message, 'error')
+          }
+        } else {
+          console.log('✅ Forms loaded:', formsData?.length || 0, 'forms')
+          console.log('📊 Forms data:', JSON.stringify(formsData, null, 2))
+          if (mounted && formsData) {
+            setForms(formsData)
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Initialization error:', error)
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
     }
 
-    setUser(user as AuthUser)
+    initialize()
 
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    if (profileData) {
-      setProfile(profileData)
+    return () => {
+      mounted = false
     }
+  }, []) // Only run once on mount
 
-    setLoading(false)
-  }, [supabase, router])
-
-  const loadForms = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
+  const refreshForms = async () => {
     if (!user) return
 
-    const { data: formsData, error } = await supabase
-      .from('forms')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    setRefreshing(true)
+    console.log('🔄 Refreshing forms...')
 
-    if (error) {
-      console.error('Error loading forms:', error)
-      showToast('Error loading forms. Please refresh the page.', 'error')
-      return
+    try {
+      const { data: formsData, error } = await supabase
+        .from('forms')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('❌ Refresh error:', error)
+        showToast('Error refreshing forms', 'error')
+      } else {
+        console.log('✅ Forms refreshed:', formsData?.length || 0, 'forms')
+        setForms(formsData || [])
+        showToast('Forms refreshed!', 'success')
+      }
+    } catch (error) {
+      console.error('❌ Unexpected refresh error:', error)
+      showToast('Error refreshing forms', 'error')
+    } finally {
+      setRefreshing(false)
     }
-
-    if (formsData) {
-      setForms(formsData)
-    }
-  }, [supabase])
-
-  useEffect(() => {
-    checkUser()
-    loadForms()
-  }, [checkUser, loadForms])
+  }
 
   const createForm = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !newFormTitle.trim()) return
+    if (!user || !newFormTitle.trim()) {
+      console.log('❌ Cannot create form: missing user or title')
+      return
+    }
 
     const limits = getPlanLimits(profile?.plan || 'free')
     if (limits.forms !== 'unlimited' && typeof limits.forms === 'number' && forms.length >= limits.forms) {
@@ -114,34 +169,23 @@ export default function DashboardPage() {
     }
 
     setCreating(true)
+    const titleToCreate = newFormTitle.trim()
+    const descToCreate = newFormDescription.trim()
 
-    // Create temporary ID for optimistic UI
-    const tempId = `temp-${Date.now()}`
-    const tempForm: Form = {
-      id: tempId,
-      user_id: user.id,
-      title: newFormTitle,
-      description: newFormDescription,
-      questions: [],
-      created_at: new Date().toISOString()
-    }
-    
-    // OPTIMISTIC UI: Show form immediately
-    setForms(prev => [tempForm, ...prev])
-    setShowCreateForm(false)
-    setNewFormTitle('')
-    setNewFormDescription('')
-    showToast('Creating your form...', 'success')
+    console.log('📝 Creating form:', {
+      title: titleToCreate,
+      description: descToCreate,
+      user_id: user.id
+    })
 
     try {
-      // Create in database in background
       const { data, error } = await supabase
         .from('forms')
         .insert([
           {
             user_id: user.id,
-            title: newFormTitle,
-            description: newFormDescription,
+            title: titleToCreate,
+            description: descToCreate,
             questions: []
           }
         ])
@@ -149,56 +193,119 @@ export default function DashboardPage() {
         .single()
 
       if (error) {
-        console.error('Form creation error:', error)
-        // Remove temp form on error
-        setForms(prev => prev.filter(f => f.id !== tempId))
+        console.error('❌ Form creation error:', error)
         showToast('Error creating form: ' + error.message, 'error')
-      } else if (data) {
-        // Replace temp form with real form
-        setForms(prev => prev.map(f => f.id === tempId ? data : f))
-        showToast('Form created! Click Edit to add questions.', 'success')
+        setCreating(false)
+        return
       }
+
+      console.log('✅ Form created successfully:', data)
+      
+      // Close modal and clear inputs
+      setShowCreateForm(false)
+      setNewFormTitle('')
+      setNewFormDescription('')
+      
+      // Show success message
+      showToast('Form created! Click Edit to add questions.', 'success')
+
+      // Wait a moment then refresh to ensure we get the latest data
+      setTimeout(async () => {
+        console.log('🔄 Reloading forms after creation...')
+        const { data: updatedForms, error: reloadError } = await supabase
+          .from('forms')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (reloadError) {
+          console.error('❌ Reload error:', reloadError)
+          // Fallback: just add to existing list
+          setForms(prev => [data, ...prev])
+        } else {
+          console.log('✅ Forms reloaded:', updatedForms?.length || 0, 'forms')
+          setForms(updatedForms || [])
+        }
+        
+        setCreating(false)
+      }, 500)
+
     } catch (err) {
-      console.error('Unexpected error:', err)
-      setForms(prev => prev.filter(f => f.id !== tempId))
+      console.error('❌ Unexpected error creating form:', err)
       showToast('Unexpected error. Please try again.', 'error')
-    } finally {
       setCreating(false)
     }
   }
 
   const deleteForm = async (formId: string) => {
-    if (!confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
+    console.log('🗑️ Delete requested for form:', formId)
+    
+    const confirmed = confirm('Are you sure you want to delete this form? This action cannot be undone.')
+    
+    if (!confirmed) {
+      console.log('❌ Delete cancelled by user')
       return
     }
 
-    // Optimistic UI: Remove immediately
     const formToDelete = forms.find(f => f.id === formId)
+    if (!formToDelete) {
+      console.error('❌ Form not found in state:', formId)
+      return
+    }
+
+    console.log('🗑️ Deleting form:', formToDelete.title)
+    
+    // Optimistically remove from UI
     setForms(prev => prev.filter(f => f.id !== formId))
     showToast('Deleting form...', 'success')
 
-    const { error } = await supabase
-      .from('forms')
-      .delete()
-      .eq('id', formId)
+    try {
+      const { error } = await supabase
+        .from('forms')
+        .delete()
+        .eq('id', formId)
+        .eq('user_id', user?.id) // Extra safety check
 
-    if (error) {
-      console.error('Delete error:', error)
-      // Restore form on error
-      if (formToDelete) {
+      if (error) {
+        console.error('❌ Delete error:', error)
+        // Restore form
         setForms(prev => [formToDelete, ...prev].sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         ))
+        showToast('Error deleting form: ' + error.message, 'error')
+      } else {
+        console.log('✅ Form deleted successfully')
+        showToast('Form deleted successfully!', 'success')
       }
-      showToast('Error deleting form: ' + error.message, 'error')
-    } else {
-      showToast('Form deleted successfully!', 'success')
+    } catch (err) {
+      console.error('❌ Unexpected delete error:', err)
+      // Restore form
+      setForms(prev => [formToDelete, ...prev].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      ))
+      showToast('Error deleting form. Please try again.', 'error')
     }
   }
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    console.log('👋 Logging out...')
+    showToast('Logging out...', 'success')
+    
+    // Clear state immediately
+    setUser(null)
+    setProfile(null)
+    setForms([])
+    
+    // Navigate home
     router.push('/')
+    
+    // Sign out in background
+    try {
+      await supabase.auth.signOut()
+      console.log('✅ Signed out successfully')
+    } catch (error) {
+      console.error('❌ Logout error:', error)
+    }
   }
 
   if (loading) {
@@ -219,11 +326,11 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in ${
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 ${
           toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        } text-white`}>
-          <AlertCircle className="w-5 h-5" />
-          <span>{toast.message}</span>
+        } text-white max-w-md`}>
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm">{toast.message}</span>
         </div>
       )}
 
@@ -330,15 +437,25 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            {planName === 'free' && (
-              <Link 
-                href="/pricing"
-                className="mt-4 sm:mt-0 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+            <div className="flex items-center gap-2 mt-4 sm:mt-0">
+              <button
+                onClick={refreshForms}
+                disabled={refreshing}
+                className="text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                title="Refresh forms"
               >
-                <Crown className="w-4 h-4" />
-                Upgrade Plan
-              </Link>
-            )}
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              {planName === 'free' && (
+                <Link 
+                  href="/pricing"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Crown className="w-4 h-4" />
+                  Upgrade Plan
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Progress Bar */}
@@ -505,6 +622,7 @@ export default function DashboardPage() {
                     value={newFormTitle}
                     onChange={(e) => setNewFormTitle(e.target.value)}
                     required
+                    autoFocus
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Restaurant Feedback Survey"
                   />
@@ -537,13 +655,14 @@ export default function DashboardPage() {
                       setNewFormTitle('')
                       setNewFormDescription('')
                     }}
-                    className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    disabled={creating}
+                    className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={creating}
+                    disabled={creating || !newFormTitle.trim()}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                   >
                     {creating ? 'Creating...' : 'Create Form'}
