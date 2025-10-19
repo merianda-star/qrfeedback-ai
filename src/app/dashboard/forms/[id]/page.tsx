@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { generateQRData } from '@/lib/utils'
-import { ArrowLeft, Plus, Trash2, QrCode, Download, Eye, Save, Info, Star, MessageSquare, CheckSquare, Crown } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, QrCode, Download, Eye, Save, Info, Star, MessageSquare, CheckSquare, Crown, AlertCircle, Loader2 } from 'lucide-react'
 import QRCodeLib from 'qrcode'
 
 interface Question {
@@ -33,10 +33,12 @@ export default function FormBuilderPage() {
   const [form, setForm] = useState<Form | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [showQRModal, setShowQRModal] = useState(false)
   const [showInstructions, setShowInstructions] = useState(true)
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null)
   const [newQuestion, setNewQuestion] = useState({
     type: 'rating' as 'rating' | 'text' | 'multiple',
     text: '',
@@ -44,72 +46,93 @@ export default function FormBuilderPage() {
   })
   const supabase = createClient()
 
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 5000)
+  }
+
   useEffect(() => {
     loadForm()
   }, [])
 
-  // Check if this is the user's first time (no questions added)
   const isFirstTime = form?.questions.length === 0
 
   const loadForm = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      router.push('/auth/login')
-      return
+    try {
+      setLoadError(null)
+      
+      // Set a timeout for slow database responses
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database timeout')), 15000)
+      )
+
+      const loadPromise = (async () => {
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        
+        if (userError || !user) {
+          router.push('/auth/login')
+          return
+        }
+
+        // Load profile and form in parallel for speed
+        const [profileResult, formResult] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', user.id).single(),
+          supabase.from('forms').select('*').eq('id', params.id).eq('user_id', user.id).single()
+        ])
+
+        if (profileResult.data) {
+          setProfile(profileResult.data)
+        }
+
+        if (formResult.error || !formResult.data) {
+          throw new Error('Form not found or access denied')
+        }
+
+        setForm(formResult.data)
+      })()
+
+      await Promise.race([loadPromise, timeoutPromise])
+      
+    } catch (error: any) {
+      console.error('Load error:', error)
+      if (error.message === 'Database timeout') {
+        setLoadError('Loading is taking longer than usual. This might be a connectivity issue.')
+        showToast('Slow connection detected. Retrying...', 'error')
+        // Retry after 2 seconds
+        setTimeout(loadForm, 2000)
+      } else if (error.message === 'Form not found or access denied') {
+        showToast('Form not found', 'error')
+        setTimeout(() => router.push('/dashboard'), 2000)
+      } else {
+        setLoadError('Error loading form. Please refresh the page.')
+        showToast('Error loading form', 'error')
+      }
+    } finally {
+      setLoading(false)
     }
-
-    // Load user profile for plan info
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    if (profileData) {
-      setProfile(profileData)
-    }
-
-    const { data: formData, error } = await supabase
-      .from('forms')
-      .select('*')
-      .eq('id', params.id)
-      .eq('user_id', user.id)
-      .single()
-
-    if (error || !formData) {
-      router.push('/dashboard')
-      return
-    }
-
-    setForm(formData)
-    setLoading(false)
   }
 
   const saveForm = async () => {
     if (!form) return
 
     setSaving(true)
+    showToast('Saving changes...', 'success')
 
-    const { error } = await supabase
-      .from('forms')
-      .update({ questions: form.questions })
-      .eq('id', form.id)
+    try {
+      const { error } = await supabase
+        .from('forms')
+        .update({ questions: form.questions })
+        .eq('id', form.id)
 
-    if (error) {
-      alert('Error saving form: ' + error.message)
-    } else {
-      // Show success feedback
-      const saveButton = document.querySelector('[data-save-button]')
-      if (saveButton) {
-        saveButton.textContent = 'Saved!'
-        setTimeout(() => {
-          saveButton.textContent = 'Save'
-        }, 2000)
-      }
+      if (error) throw error
+
+      showToast('Changes saved successfully!', 'success')
+    } catch (error: any) {
+      console.error('Save error:', error)
+      showToast('Error saving: ' + (error.message || 'Please try again'), 'error')
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   const addQuestion = () => {
@@ -124,6 +147,7 @@ export default function FormBuilderPage() {
         : undefined
     }
 
+    // Optimistic update
     setForm({
       ...form,
       questions: [...form.questions, question]
@@ -135,19 +159,23 @@ export default function FormBuilderPage() {
       options: ['']
     })
 
-    // Hide instructions after first question is added
     if (isFirstTime) {
       setShowInstructions(false)
     }
+
+    showToast('Question added! Remember to save your changes.', 'success')
   }
 
   const deleteQuestion = (questionId: string) => {
     if (!form) return
 
+    // Optimistic update
     setForm({
       ...form,
       questions: form.questions.filter(q => q.id !== questionId)
     })
+
+    showToast('Question removed! Remember to save your changes.', 'success')
   }
 
   const generateQR = async () => {
@@ -157,7 +185,7 @@ export default function FormBuilderPage() {
     
     try {
       const qrCodeDataUrl = await QRCodeLib.toDataURL(qrData, {
-        width: 256,
+        width: 512,
         margin: 2,
         color: {
           dark: '#1f2937',
@@ -168,7 +196,7 @@ export default function FormBuilderPage() {
       setQrCodeUrl(qrCodeDataUrl)
       setShowQRModal(true)
     } catch (error) {
-      alert('Error generating QR code')
+      showToast('Error generating QR code', 'error')
     }
   }
 
@@ -177,6 +205,7 @@ export default function FormBuilderPage() {
     link.href = qrCodeUrl
     link.download = `${form?.title || 'feedback-form'}-qr-code.png`
     link.click()
+    showToast('QR code downloaded!', 'success')
   }
 
   const addOption = () => {
@@ -202,38 +231,34 @@ export default function FormBuilderPage() {
     })
   }
 
-  // Loading skeleton component
-  const LoadingSkeleton = () => (
-    <div className="min-h-screen bg-gray-50">
-      <div className="animate-pulse">
-        <div className="bg-white h-16 border-b mb-8"></div>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg p-6 mb-8">
-            <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-          <div className="bg-white rounded-lg p-6 mb-8">
-            <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="space-y-4">
-              <div className="h-10 bg-gray-200 rounded"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-              <div className="h-10 bg-gray-200 rounded w-1/4"></div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 font-medium mb-2">Loading your form...</p>
+          {loadError && (
+            <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md">
+              <p className="text-yellow-800 text-sm">{loadError}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+              >
+                Refresh Page
+              </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
-    </div>
-  )
-
-  if (loading) {
-    return <LoadingSkeleton />
+    )
   }
 
   if (!form) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600">Form not found</p>
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-gray-900 font-medium mb-2">Form not found</p>
           <Link href="/dashboard" className="text-blue-600 hover:text-blue-700">
             Back to Dashboard
           </Link>
@@ -264,6 +289,16 @@ export default function FormBuilderPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in ${
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white max-w-md`}>
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm">{toast.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -291,11 +326,19 @@ export default function FormBuilderPage() {
               <button
                 onClick={saveForm}
                 disabled={saving}
-                data-save-button
                 className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save
+                  </>
+                )}
               </button>
               <button
                 onClick={generateQR}
@@ -327,15 +370,28 @@ export default function FormBuilderPage() {
                   <p><strong>Step 2:</strong> Write your question</p>
                   <p><strong>Step 3:</strong> Add answer options (for Multiple Choice only)</p>
                   <p><strong>Step 4:</strong> Click "Add Question" to save it</p>
-                  <p><strong>Step 5:</strong> Generate your QR code when ready!</p>
+                  <p><strong>Step 5:</strong> Click the green "Save" button at the top</p>
+                  <p><strong>Step 6:</strong> Generate your QR code when ready!</p>
                 </div>
                 <button 
                   onClick={() => setShowInstructions(false)}
-                  className="mt-4 text-blue-600 text-sm hover:text-blue-700"
+                  className="mt-4 text-blue-600 text-sm hover:text-blue-700 font-medium"
                 >
                   Got it, hide this
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unsaved Changes Warning */}
+        {form.questions.length > 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-yellow-800">
+                <strong>Don't forget to save!</strong> Click the green <strong>Save</strong> button at the top after making changes.
+              </p>
             </div>
           </div>
         )}
@@ -610,8 +666,9 @@ export default function FormBuilderPage() {
             <div className="p-6 text-center">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Your QR Code is Ready!</h2>
               <img src={qrCodeUrl} alt="QR Code" className="mx-auto mb-4 rounded-lg shadow-md" />
-              <p className="text-gray-600 mb-6">
-                Print this QR code and place it where customers can easily scan it with their phones
+              <p className="text-gray-600 mb-2 font-medium">Scan this QR code to test your form:</p>
+              <p className="text-sm text-gray-500 mb-6">
+                Print and place it where customers can scan with their phones
               </p>
               <div className="flex gap-3 justify-center">
                 <button
