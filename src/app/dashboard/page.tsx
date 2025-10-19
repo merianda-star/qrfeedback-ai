@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPlanLimits } from '@/lib/pricing'
-import { Plus, QrCode, Edit, Trash2, BarChart3, LogOut, Crown, User, Home } from 'lucide-react'
+import { Plus, QrCode, Edit, Trash2, BarChart3, LogOut, Crown, User, Home, AlertCircle } from 'lucide-react'
 
 interface Question {
   id: string
@@ -20,6 +20,7 @@ interface Form {
   description: string
   questions: Question[]
   created_at: string
+  user_id?: string
 }
 
 interface Profile {
@@ -43,8 +44,14 @@ export default function DashboardPage() {
   const [newFormTitle, setNewFormTitle] = useState('')
   const [newFormDescription, setNewFormDescription] = useState('')
   const [creating, setCreating] = useState(false)
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null)
   const router = useRouter()
   const supabase = createClient()
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 5000)
+  }
 
   const checkUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -74,11 +81,17 @@ export default function DashboardPage() {
     
     if (!user) return
 
-    const { data: formsData } = await supabase
+    const { data: formsData, error } = await supabase
       .from('forms')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error loading forms:', error)
+      showToast('Error loading forms. Please refresh the page.', 'error')
+      return
+    }
 
     if (formsData) {
       setForms(formsData)
@@ -94,37 +107,64 @@ export default function DashboardPage() {
     e.preventDefault()
     if (!user || !newFormTitle.trim()) return
 
-    setCreating(true)
-
     const limits = getPlanLimits(profile?.plan || 'free')
     if (limits.forms !== 'unlimited' && typeof limits.forms === 'number' && forms.length >= limits.forms) {
-      alert(`Your ${profile?.plan || 'free'} plan allows only ${limits.forms} forms. Please upgrade to create more!`)
-      setCreating(false)
+      showToast(`Your ${profile?.plan || 'free'} plan allows only ${limits.forms} forms. Please upgrade!`, 'error')
       return
     }
 
-    const { error } = await supabase
-      .from('forms')
-      .insert([
-        {
-          user_id: user.id,
-          title: newFormTitle,
-          description: newFormDescription,
-          questions: []
-        }
-      ])
-      .select()
+    setCreating(true)
 
-    if (error) {
-      alert('Error creating form: ' + error.message)
-    } else {
-      setShowCreateForm(false)
-      setNewFormTitle('')
-      setNewFormDescription('')
-      loadForms()
+    // Create temporary ID for optimistic UI
+    const tempId = `temp-${Date.now()}`
+    const tempForm: Form = {
+      id: tempId,
+      user_id: user.id,
+      title: newFormTitle,
+      description: newFormDescription,
+      questions: [],
+      created_at: new Date().toISOString()
     }
+    
+    // OPTIMISTIC UI: Show form immediately
+    setForms(prev => [tempForm, ...prev])
+    setShowCreateForm(false)
+    setNewFormTitle('')
+    setNewFormDescription('')
+    showToast('Creating your form...', 'success')
 
-    setCreating(false)
+    try {
+      // Create in database in background
+      const { data, error } = await supabase
+        .from('forms')
+        .insert([
+          {
+            user_id: user.id,
+            title: newFormTitle,
+            description: newFormDescription,
+            questions: []
+          }
+        ])
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Form creation error:', error)
+        // Remove temp form on error
+        setForms(prev => prev.filter(f => f.id !== tempId))
+        showToast('Error creating form: ' + error.message, 'error')
+      } else if (data) {
+        // Replace temp form with real form
+        setForms(prev => prev.map(f => f.id === tempId ? data : f))
+        showToast('Form created! Click Edit to add questions.', 'success')
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      setForms(prev => prev.filter(f => f.id !== tempId))
+      showToast('Unexpected error. Please try again.', 'error')
+    } finally {
+      setCreating(false)
+    }
   }
 
   const deleteForm = async (formId: string) => {
@@ -132,15 +172,27 @@ export default function DashboardPage() {
       return
     }
 
+    // Optimistic UI: Remove immediately
+    const formToDelete = forms.find(f => f.id === formId)
+    setForms(prev => prev.filter(f => f.id !== formId))
+    showToast('Deleting form...', 'success')
+
     const { error } = await supabase
       .from('forms')
       .delete()
       .eq('id', formId)
 
     if (error) {
-      alert('Error deleting form: ' + error.message)
+      console.error('Delete error:', error)
+      // Restore form on error
+      if (formToDelete) {
+        setForms(prev => [formToDelete, ...prev].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ))
+      }
+      showToast('Error deleting form: ' + error.message, 'error')
     } else {
-      loadForms()
+      showToast('Form deleted successfully!', 'success')
     }
   }
 
@@ -165,6 +217,16 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 animate-slide-in ${
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white`}>
+          <AlertCircle className="w-5 h-5" />
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -238,7 +300,7 @@ export default function DashboardPage() {
                   <h3 className="text-xl font-semibold">Unlock More Features with Pro</h3>
                 </div>
                 <p className="text-white/90">
-                  Get unlimited forms, 1,000 responses/month, advanced analytics, and priority support
+                  Get unlimited forms, 500 responses/month, advanced analytics, and priority support
                 </p>
               </div>
               <Link
@@ -284,7 +346,7 @@ export default function DashboardPage() {
             <div className="mt-4">
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full ${
+                  className={`h-2 rounded-full transition-all ${
                     forms.length >= planLimits.forms ? 'bg-red-500' : 'bg-blue-600'
                   }`}
                   style={{ width: `${Math.min((forms.length / (planLimits.forms as number)) * 100, 100)}%` }}
@@ -302,7 +364,8 @@ export default function DashboardPage() {
           </div>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+            disabled={creating}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
           >
             <Plus className="w-5 h-5" />
             Create New Form
@@ -348,6 +411,16 @@ export default function DashboardPage() {
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                     {form.description || 'No description provided'}
                   </p>
+
+                  {/* Helper message for forms without questions */}
+                  {form.questions.length === 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                      <p className="text-xs text-yellow-800 font-medium flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>Click <strong>Edit</strong> below to add questions and activate this form!</span>
+                      </p>
+                    </div>
+                  )}
                   
                   <div className="flex items-center text-xs text-gray-500 mb-4 space-x-3">
                     <span className="flex items-center">
@@ -397,7 +470,7 @@ export default function DashboardPage() {
               <div>
                 <h4 className="font-semibold text-blue-900 mb-1">Pro Tip</h4>
                 <p className="text-blue-800 text-sm">
-                  Upgrade to Pro to create unlimited forms, collect up to 1,000 responses per month, 
+                  Upgrade to Pro to create unlimited forms, collect up to 500 responses per month, 
                   and access advanced analytics to better understand your customers.
                 </p>
                 <Link 
@@ -452,7 +525,7 @@ export default function DashboardPage() {
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
-                    💡 After creating the form, you'll be able to add questions and generate a QR code
+                    💡 After creating the form, click <strong>Edit</strong> to add questions and generate a QR code
                   </p>
                 </div>
                 
@@ -484,4 +557,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
