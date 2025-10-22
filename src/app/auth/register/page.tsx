@@ -36,7 +36,11 @@ export default function RegisterPage() {
     try {
       console.log('🔐 Registering user:', email)
 
-      // Step 1: Sign up the user
+      // IMPORTANT: Sign out any existing session first
+      await supabase.auth.signOut()
+      console.log('🚪 Cleared existing session')
+
+      // Step 1: Sign up the new user
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
