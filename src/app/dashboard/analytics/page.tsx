@@ -106,9 +106,9 @@ export default function AnalyticsPage() {
     setPlan(profile?.plan || 'free')
     const { data: formsData } = await supabase.from('forms').select('id, title').eq('user_id', user.id)
     const formMap: Record<string, string> = {}
-    formsData?.forEach(f => { formMap[f.id] = f.title })
+    formsData?.forEach((f: any) => { formMap[f.id] = f.title })
     setForms(formMap)
-    const formIds = formsData?.map(f => f.id) || []
+    const formIds = formsData?.map((f: any) => f.id) || []
     if (formIds.length > 0) {
       const { data } = await supabase.from('responses').select('*').in('form_id', formIds).order('submitted_at', { ascending: true })
       setResponses(data || [])
