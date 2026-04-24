@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
       }
     })
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
       if (session) {
         setValidSession(true)
         setCheckingSession(false)
