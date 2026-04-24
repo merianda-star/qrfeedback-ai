@@ -97,9 +97,9 @@ function SentimentBar({ score }: { score: number }) {
   )
 }
 
-function ReplyModal({ response, onClose, onReplyUsed }: {
+function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
   response: Response
-  //aiUsage: AIUsage | null
+  aiUsage: AIUsage | null
   onClose: () => void
   onReplyUsed: () => void
 }) {
