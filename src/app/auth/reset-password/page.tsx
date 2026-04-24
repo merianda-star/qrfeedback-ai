@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
   const strengthColor = ['', '#b05c52', '#c4896a', '#4a7a5a']
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
       if (event === 'PASSWORD_RECOVERY') {
         setValidSession(true)
         setCheckingSession(false)
