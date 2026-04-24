@@ -67,10 +67,10 @@ export default function InsightsPage() {
 
     const { data: formsData } = await supabase.from('forms').select('id, title').eq('user_id', user.id)
     const formMap: Record<string, string> = {}
-    formsData?.forEach(f => { formMap[f.id] = f.title })
+    formsData?.forEach((f: any) => { formMap[f.id] = f.title })
     setForms(formMap)
 
-    const formIds = formsData?.map(f => f.id) || []
+    const formIds = formsData?.map((f: any) => f.id) || []
     if (formIds.length === 0) { setLoading(false); return }
 
     // Count total negative responses
@@ -85,7 +85,7 @@ export default function InsightsPage() {
       .lte('rating', 3)
       .order('submitted_at', { ascending: false })
 
-    setResponses((data || []).map(r => ({ ...r, form_title: formMap[r.form_id] || 'Unknown Form' })))
+    setResponses((data || []).map((r: any) => ({ ...r, form_title: formMap[r.form_id] || 'Unknown Form' })))
     setLoading(false)
   }
 

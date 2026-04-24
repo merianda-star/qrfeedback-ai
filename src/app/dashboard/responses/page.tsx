@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -112,7 +112,6 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
   async function handleSwitchToAI() {
     if (!canUseAI || tab === 'ai') return
     setAILoading(true)
-    // Record the reply usage
     await fetch('/api/ai-usage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,7 +146,6 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 500, border: '1px solid #e8d5cf', boxShadow: '0 24px 64px rgba(42,31,29,0.18)', overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
 
-        {/* Header */}
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #e8d5cf', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1rem', color: '#2a1f1d', marginBottom: 3 }}>Reply to Customer</div>
@@ -158,7 +156,6 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b09490', fontSize: '1.1rem', padding: 4, lineHeight: 1, flexShrink: 0 }}>✕</button>
         </div>
 
-        {/* AI usage indicator */}
         {response.ai_suggested_reply && aiUsage && aiUsage.plan !== 'free' && (
           <div style={{ padding: '10px 20px 0' }}>
             <div style={{ background: aiLimitReached ? '#fef5f4' : '#edf4ef', border: `1px solid ${aiLimitReached ? '#f0c4be' : 'rgba(74,122,90,0.2)'}`, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -184,7 +181,6 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
           </div>
         )}
 
-        {/* Tab switcher */}
         <div style={{ padding: '14px 20px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             onClick={() => !aiLimitReached && !aiLoading && handleTabSwitch('ai')}
@@ -250,7 +246,7 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
   )
 }
 
-export default function ResponsesPage() {
+function ResponsesPageInner() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -283,23 +279,22 @@ export default function ResponsesPage() {
 
     const { data: formsData } = await supabase.from('forms').select('id, title').eq('user_id', user.id)
     const formMap: Record<string, string> = {}
-    formsData?.forEach(f => { formMap[f.id] = f.title })
+    formsData?.forEach((f: any) => { formMap[f.id] = f.title })
     setForms(formMap)
 
-    const formIds = formsData?.map(f => f.id) || []
+    const formIds = formsData?.map((f: any) => f.id) || []
     if (formIds.length === 0) { setLoading(false); return }
 
     const { data: allResponses } = await supabase
       .from('responses').select('*').in('form_id', formIds).order('submitted_at', { ascending: false })
 
-    const mapped = (allResponses || []).map(r => ({ ...r, form_title: formMap[r.form_id] || 'Unknown Form' }))
+    const mapped = (allResponses || []).map((r: any) => ({ ...r, form_title: formMap[r.form_id] || 'Unknown Form' }))
     setResponses(mapped)
 
     const nowUTC = new Date()
     const startOfMonthUTC = new Date(Date.UTC(nowUTC.getUTCFullYear(), nowUTC.getUTCMonth(), 1))
-    setMonthlyCount(mapped.filter(r => new Date(r.submitted_at.endsWith('Z') ? r.submitted_at : r.submitted_at + 'Z') >= startOfMonthUTC).length)
+    setMonthlyCount(mapped.filter((r: any) => new Date(r.submitted_at.endsWith('Z') ? r.submitted_at : r.submitted_at + 'Z') >= startOfMonthUTC).length)
 
-    // Load AI usage for pro/business users
     if (userPlan !== 'free') {
       const usageRes = await fetch('/api/ai-usage')
       if (usageRes.ok) setAIUsage(await usageRes.json())
@@ -309,7 +304,6 @@ export default function ResponsesPage() {
   }
 
   function handleReplyUsed() {
-    // Decrement local reply count immediately so UI updates without refetch
     setAIUsage(prev => prev ? {
       ...prev,
       reply: {
@@ -479,7 +473,6 @@ export default function ResponsesPage() {
 
       <div className="resp-page">
 
-        {/* Free plan usage bar */}
         {plan === 'free' && (
           <div className="usage-bar">
             <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', fontWeight: 600, whiteSpace: 'nowrap' }}>This month</span>
@@ -490,7 +483,6 @@ export default function ResponsesPage() {
           </div>
         )}
 
-        {/* Pro/Business AI usage bar */}
         {plan !== 'free' && aiUsage && (
           <div className="ai-usage-bar">
             <div className="usage-section">
@@ -724,5 +716,17 @@ export default function ResponsesPage() {
         )}
       </div>
     </>
+  )
+}
+
+export default function ResponsesPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <div style={{ color: '#b09490', fontSize: '0.85rem' }}>Loading responses...</div>
+      </div>
+    }>
+      <ResponsesPageInner />
+    </Suspense>
   )
 }

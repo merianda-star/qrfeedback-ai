@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function CodeRedirector() {
+function CodeRedirectorInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -25,4 +25,12 @@ export default function CodeRedirector() {
   }, [])
 
   return null
+}
+
+export default function CodeRedirector() {
+  return (
+    <Suspense fallback={null}>
+      <CodeRedirectorInner />
+    </Suspense>
+  )
 }

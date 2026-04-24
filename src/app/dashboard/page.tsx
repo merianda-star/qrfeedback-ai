@@ -76,16 +76,16 @@ export default function OverviewPage() {
 
     if (formsData) setForms(formsData)
 
-    const formIds = formsData?.map(f => f.id) || []
+    const formIds = formsData?.map((f: any) => f.id) || []
     const { data: responsesData } = formIds.length > 0
       ? await supabase.from('responses').select('rating, ai_processed').in('form_id', formIds)
       : { data: [] }
 
     if (responsesData) {
       const total = responsesData.length
-      const avg = total > 0 ? responsesData.reduce((s, r) => s + (r.rating || 0), 0) / total : 0
-      const positive = responsesData.filter(r => r.rating >= 4).length
-      const negative = responsesData.filter(r => r.rating <= 3).length
+      const avg = total > 0 ? responsesData.reduce((s: number, r: any) => s + (r.rating || 0), 0) / total : 0
+      const positive = responsesData.filter((r: any) => r.rating >= 4).length
+      const negative = responsesData.filter((r: any) => r.rating <= 3).length
       setStats({ totalResponses: total, avgRating: Math.round(avg * 10) / 10, googleRedirects: positive, negativeCount: negative })
     }
     setLoading(false)

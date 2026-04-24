@@ -28,7 +28,8 @@ export default function OnboardingWizard({ onComplete }: { onComplete: () => voi
   const [userName, setUserName] = useState('')
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data }: { data: any }) => {
+      const user = data.user
       if (user?.user_metadata?.full_name) setUserName(user.user_metadata.full_name.split(' ')[0])
       else if (user?.email) setUserName(user.email.split('@')[0])
     })

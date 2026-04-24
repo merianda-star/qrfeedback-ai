@@ -383,17 +383,17 @@ export default function QRCodesPage() {
       .from('forms').select('id, title, location_name').eq('user_id', user.id)
     if (!formsData || formsData.length === 0) { setLoading(false); return }
 
-    const formIds = formsData.map(f => f.id)
+    const formIds = formsData.map((f: any) => f.id)
     const { data: responses } = await supabase
       .from('responses').select('form_id, rating').in('form_id', formIds)
 
     const countMap: Record<string, number[]> = {}
-    responses?.forEach(r => {
+    responses?.forEach((r: any) => {
       if (!countMap[r.form_id]) countMap[r.form_id] = []
       countMap[r.form_id].push(r.rating)
     })
 
-    const enriched = formsData.map(f => ({
+    const enriched = formsData.map((f: any) => ({
       ...f,
       response_count: countMap[f.id]?.length || 0,
       avg_rating: countMap[f.id]?.length
@@ -403,7 +403,7 @@ export default function QRCodesPage() {
 
     setForms(enriched)
     const initConfigs: Record<string, QRConfig> = {}
-    formsData.forEach(f => { initConfigs[f.id] = { ...DEFAULT_CONFIG } })
+    formsData.forEach((f: any) => { initConfigs[f.id] = { ...DEFAULT_CONFIG } })
     setConfigs(initConfigs)
     setLoading(false)
   }

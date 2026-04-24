@@ -49,18 +49,18 @@ export default function FormsPage() {
 
     if (formsData) {
       setForms(formsData)
-      const formIds = formsData.map(f => f.id)
+      const formIds = formsData.map((f: any) => f.id)
       const { data: responses } = formIds.length > 0
         ? await supabase.from('responses').select('form_id, rating').in('form_id', formIds)
         : { data: [] }
       if (responses) {
         const stats: FormStats = {}
-        formsData.forEach(f => {
-          const fr = responses.filter(r => r.form_id === f.id)
+        formsData.forEach((f: any) => {
+          const fr = responses.filter((r: any) => r.form_id === f.id)
           const total = fr.length
-          const positive = fr.filter(r => r.rating >= 4).length
-          const negative = fr.filter(r => r.rating <= 3).length
-          const avg = total > 0 ? fr.reduce((s, r) => s + (r.rating || 0), 0) / total : 0
+          const positive = fr.filter((r: any) => r.rating >= 4).length
+          const negative = fr.filter((r: any) => r.rating <= 3).length
+          const avg = total > 0 ? fr.reduce((s: number, r: any) => s + (r.rating || 0), 0) / total : 0
           stats[f.id] = { total, positive, negative, avg: Math.round(avg * 10) / 10 }
         })
         setFormStats(stats)

@@ -93,7 +93,7 @@ export default function ImportPage() {
       .order('imported_at', { ascending: false })
     if (!data) return
     const grouped: Record<string, ImportHistory> = {}
-    data.forEach(r => {
+    data.forEach((r: any) => {
       if (!grouped[r.import_id]) {
         grouped[r.import_id] = { import_id: r.import_id, import_filename: r.import_filename, imported_at: r.imported_at, count: 0 }
       }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -71,7 +71,7 @@ function LockedOverlay({ plan, requiredPlan = 'Pro' }: { plan: string, requiredP
   )
 }
 
-export default function AnalyticsPage() {
+function AnalyticsPageInner() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -480,5 +480,17 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </>
+  )
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <div style={{ color: '#b09490', fontSize: '0.85rem' }}>Loading analytics...</div>
+      </div>
+    }>
+      <AnalyticsPageInner />
+    </Suspense>
   )
 }
