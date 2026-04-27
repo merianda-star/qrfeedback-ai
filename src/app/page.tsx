@@ -217,6 +217,10 @@ export default function HomePage() {
         .price-btn:hover { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
         .price-btn.pop { background: var(--rose); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(176,92,82,0.35); }
         .price-btn.pop:hover { background: var(--rose-dark); }
+        .price-btn.buy { background: var(--rose); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(176,92,82,0.35); margin-top: 8px; }
+        .price-btn.buy:hover { background: var(--rose-dark); }
+        .price-btn.buy-dark { background: rgba(255,255,255,0.12); color: #f5ede8; border-color: rgba(255,255,255,0.2); margin-top: 8px; }
+        .price-btn.buy-dark:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
 
         .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
@@ -308,7 +312,6 @@ export default function HomePage() {
         .modal-submit:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
         .modal-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-        /* Success state */
         .modal-success { padding: 32px 24px; text-align: center; }
         .modal-success-icon { width: 56px; height: 56px; border-radius: 50%; background: #edf4ef; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 16px; }
         .modal-success-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--text); margin-bottom: 8px; }
@@ -627,27 +630,52 @@ export default function HomePage() {
           <h2 className="section-title" style={{ textAlign: 'center', marginBottom: 8 }}>Simple, honest pricing</h2>
           <p style={{ textAlign: 'center', fontSize: '0.92rem', color: 'var(--text-mid)', marginBottom: 44 }}>Start free. Upgrade when you're ready.</p>
           <div className="pricing-grid">
-            {[
-              { plan: 'Free', price: '$0', period: '/month, forever', features: ['3 feedback forms', '50 responses/month', 'Smart review routing', 'Basic QR codes', 'Email support'], cta: 'Get started free', ctaAction: 'link', popular: false },
-              { plan: 'Pro', price: '$19', period: '/month', features: ['Unlimited forms', '1,000 responses/month', 'AI complaint analysis', 'Custom QR designs', 'Weekly AI email digest', 'Advanced analytics', 'CSV export'], cta: 'Start Pro free trial', ctaAction: 'link', popular: false },
-              { plan: 'Business', price: '$49', period: '/month', features: ['Everything in Pro', 'Unlimited responses', 'White-label forms', 'Custom branded QR codes', 'Remove branding', 'Priority support'], cta: 'Contact for Business trial', ctaAction: 'modal', popular: true },
-            ].map(p => (
-              <div key={p.plan} className={`price-card${p.popular ? ' popular' : ''}`}>
-                {p.popular && <div className="popular-badge">Most Popular</div>}
-                <div className="price-plan">{p.plan}</div>
-                <div className="price-amount">{p.price}</div>
-                <div className="price-period">{p.period}</div>
-                <div className="price-divider"></div>
-                <ul className="price-features">
-                  {p.features.map(f => <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>)}
-                </ul>
-                {p.ctaAction === 'modal' ? (
-                  <button className={`price-btn${p.popular ? ' pop' : ''}`} onClick={() => setShowModal(true)}>{p.cta}</button>
-                ) : (
-                  <Link href="/auth/register" className={`price-btn${p.popular ? ' pop' : ''}`}>{p.cta}</Link>
-                )}
-              </div>
-            ))}
+
+            {/* FREE */}
+            <div className="price-card">
+              <div className="price-plan">Free</div>
+              <div className="price-amount">$0</div>
+              <div className="price-period">/month, forever</div>
+              <div className="price-divider"></div>
+              <ul className="price-features">
+                {['3 feedback forms', '50 responses/month', 'Smart review routing', 'Basic QR codes', 'Email support'].map(f => (
+                  <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>
+                ))}
+              </ul>
+              <Link href="/auth/register" className="price-btn">Get started free</Link>
+            </div>
+
+            {/* PRO */}
+            <div className="price-card">
+              <div className="price-plan">Pro</div>
+              <div className="price-amount">$19</div>
+              <div className="price-period">/month</div>
+              <div className="price-divider"></div>
+              <ul className="price-features">
+                {['Unlimited forms', '1,000 responses/month', 'AI complaint analysis', 'Custom QR designs', 'Weekly AI email digest', 'Advanced analytics', 'CSV export'].map(f => (
+                  <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>
+                ))}
+              </ul>
+              <Link href="/auth/register" className="price-btn">Start Pro free trial</Link>
+              <button className="price-btn buy" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Buy Now — $19/mo</button>
+            </div>
+
+            {/* BUSINESS */}
+            <div className="price-card popular">
+              <div className="popular-badge">Most Popular</div>
+              <div className="price-plan">Business</div>
+              <div className="price-amount">$49</div>
+              <div className="price-period">/month</div>
+              <div className="price-divider"></div>
+              <ul className="price-features">
+                {['Everything in Pro', 'Unlimited responses', 'White-label forms', 'Custom branded QR codes', 'Remove branding', 'Priority support'].map(f => (
+                  <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>
+                ))}
+              </ul>
+              <button className="price-btn pop" onClick={() => setShowModal(true)}>Contact for Business trial</button>
+              <button className="price-btn buy-dark" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Buy Now — $49/mo</button>
+            </div>
+
           </div>
         </div>
       </section>
