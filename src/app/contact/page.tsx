@@ -1,7 +1,39 @@
 'use client'
+import { useState } from 'react'
 import Link from 'next/link'
 
 export default function ContactPage() {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [subject, setSubject] = useState('')
+  const [message, setMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setError('')
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        business_name: '-',
+        email,
+        business_type: subject || 'other',
+        message,
+      }),
+    })
+    setSubmitting(false)
+    if (res.ok) {
+      setSubmitted(true)
+    } else {
+      setError('Something went wrong. Please try again.')
+    }
+  }
+
   return (
     <>
       <style>{`
@@ -54,7 +86,6 @@ export default function ContactPage() {
           display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;
         }
 
-        /* Contact cards */
         .contact-cards { display: flex; flex-direction: column; gap: 16px; }
         .contact-card {
           background: var(--surface); border: 1px solid var(--border);
@@ -99,7 +130,6 @@ export default function ContactPage() {
         .contact-info-val a { color: var(--rose); text-decoration: none; }
         .contact-info-val a:hover { text-decoration: underline; }
 
-        /* Form side */
         .form-card {
           background: var(--surface); border: 1px solid var(--border);
           border-radius: 14px; padding: 32px;
@@ -135,7 +165,8 @@ export default function ContactPage() {
           transition: all 0.2s; box-shadow: 0 3px 12px rgba(176,92,82,0.25);
           margin-top: 4px;
         }
-        .submit-btn:hover { background: var(--rose-dark); transform: translateY(-1px); box-shadow: 0 5px 16px rgba(176,92,82,0.3); }
+        .submit-btn:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); box-shadow: 0 5px 16px rgba(176,92,82,0.3); }
+        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .form-note { font-size: 0.72rem; color: var(--text-soft); text-align: center; margin-top: 10px; line-height: 1.5; }
 
         @media (max-width: 768px) {
@@ -218,34 +249,45 @@ export default function ContactPage() {
           <div className="form-title">Send us a message</div>
           <div className="form-sub">Fill out the form and we'll get back to you as soon as possible.</div>
 
-          <form onSubmit={e => e.preventDefault()}>
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
-              <input type="text" className="form-input" placeholder="Your name" required />
+          {submitted ? (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✓</div>
+              <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.1rem', color: 'var(--text)', marginBottom: 8 }}>Message sent!</div>
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-soft)', lineHeight: 1.6 }}>Thanks for reaching out. We'll get back to you within one business day.</div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input type="email" className="form-input" placeholder="your@email.com" required />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Subject</label>
-              <select className="form-select">
-                <option value="">Select a topic...</option>
-                <option value="general">General enquiry</option>
-                <option value="support">Technical support</option>
-                <option value="billing">Billing & subscriptions</option>
-                <option value="feedback">Product feedback</option>
-                <option value="business">Business plan / Enterprise</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Message</label>
-              <textarea className="form-textarea" placeholder="Tell us how we can help..." required></textarea>
-            </div>
-            <button type="submit" className="submit-btn">Send Message →</button>
-            <p className="form-note">We'll reply to the email address you provide above.</p>
-          </form>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input type="text" className="form-input" placeholder="Your name" required value={name} onChange={e => setName(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <input type="email" className="form-input" placeholder="your@email.com" required value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Subject</label>
+                <select className="form-select" value={subject} onChange={e => setSubject(e.target.value)}>
+                  <option value="">Select a topic...</option>
+                  <option value="general">General enquiry</option>
+                  <option value="support">Technical support</option>
+                  <option value="billing">Billing & subscriptions</option>
+                  <option value="feedback">Product feedback</option>
+                  <option value="business">Business plan / Enterprise</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Message</label>
+                <textarea className="form-textarea" placeholder="Tell us how we can help..." required value={message} onChange={e => setMessage(e.target.value)}></textarea>
+              </div>
+              {error && <div style={{ fontSize: '0.78rem', color: 'var(--rose)', marginBottom: 10 }}>⚠ {error}</div>}
+              <button type="submit" className="submit-btn" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Send Message →'}
+              </button>
+              <p className="form-note">We'll reply to the email address you provide above.</p>
+            </form>
+          )}
         </div>
 
       </div>
