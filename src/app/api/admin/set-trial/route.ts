@@ -21,13 +21,13 @@ async function isAdmin(req: NextRequest): Promise<boolean> {
 export async function POST(req: NextRequest) {
   if (!await isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { userId, plan } = await req.json()
-  if (!userId || !plan) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-  if (!['free', 'pro', 'business'].includes(plan)) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
+  const { userId, trial_ends_at, plan } = await req.json()
+  if (!userId || !trial_ends_at || !plan) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+  if (!['pro', 'business'].includes(plan)) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
 
   const { error } = await adminSupabase
     .from('profiles')
-    .update({ plan, trial_ends_at: null })
+    .update({ plan, trial_ends_at })
     .eq('id', userId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
