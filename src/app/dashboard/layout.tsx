@@ -16,7 +16,7 @@ type Profile = {
   onboarding_completed: boolean | null
   avatar_url: string | null
   trial_ends_at: string | null
-  is_admin: boolean | null   // ← add this
+  is_admin: boolean | null
 }
 
 const navGroups = [
@@ -31,7 +31,6 @@ const navGroups = [
     { label: 'My Forms',    href: '/dashboard/forms',     icon: '▤' },
     { label: 'Questions',   href: '/dashboard/questions', icon: '◎' },
     { label: 'QR Codes',    href: '/dashboard/qr',        icon: '⬛' },
-
   ]},
   { section: 'ACCOUNT', items: [
     { label: 'Profile',  href: '/dashboard/profile',  icon: '👤' },
@@ -51,7 +50,6 @@ const pageTitles: Record<string, string> = {
   '/dashboard/forms': 'My Forms',
   '/dashboard/questions': 'Questions',
   '/dashboard/qr': 'QR Codes',
-
   '/dashboard/profile': 'Profile',
   '/dashboard/settings': 'Settings',
 }
@@ -65,7 +63,6 @@ const navIds: Record<string, string> = {
   '/dashboard/forms': 'nav-forms',
   '/dashboard/questions': 'nav-questions',
   '/dashboard/qr': 'nav-qr',
-
   '/dashboard/profile': 'nav-profile',
   '/dashboard/settings': 'nav-settings',
 }
@@ -81,6 +78,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [showWizard, setShowWizard] = useState(false)
@@ -131,8 +129,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const res = await fetch('/api/auth/check-trial', { method: 'POST' })
       const json = await res.json()
       if (json.trial_expired) {
-        // Trial just expired — update local state to free
         setProfile(prev => prev ? { ...prev, plan: 'free' } : prev)
+        setShowTrialExpiredModal(true)
       }
     } catch {}
 
@@ -338,7 +336,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .nav-badge { margin-left: auto; background: var(--rose); color: #fff; font-size: 0.56rem; font-weight: 800; padding: 2px 6px; border-radius: 20px; }
         .nav-biz-tag { margin-left: auto; font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 10px; background: #edf4ef; color: var(--green); border: 1px solid rgba(74,122,90,0.2); }
 
-        /* Trial card in sidebar */
         .sb-trial-card { margin: 0 14px 10px; padding: 12px 13px; background: linear-gradient(135deg, #fef3e8, #fff8f0); border: 1px solid #f0d8a0; border-radius: 10px; }
         .sb-trial-card-title { font-size: 0.72rem; font-weight: 700; color: #7a5a20; margin-bottom: 2px; }
         .sb-trial-card-days { font-size: 1rem; font-weight: 700; color: #5a3a10; font-family: 'DM Serif Display', serif; margin-bottom: 4px; }
@@ -362,7 +359,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .sb-logout-btn { background: transparent; border: 1px solid var(--border); cursor: pointer; color: var(--text-soft); font-size: 0.7rem; padding: 4px 9px; border-radius: 6px; transition: all 0.15s; margin-left: auto; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
         .sb-logout-btn:hover { background: var(--rose-soft); color: var(--rose); border-color: var(--border-md); }
 
-        /* Trial banner */
         .trial-banner { background: linear-gradient(135deg, #fef3e8, #fff8f0); border-bottom: 1px solid #f0d8a0; padding: 9px 28px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .trial-banner-text { font-size: 0.78rem; color: #5a3a10; flex: 1; }
         .trial-banner-text strong { font-weight: 700; }
@@ -422,7 +418,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <div className="dash-main">
-          {/* Trial banner — shows when on trial, dismissible */}
           {isOnTrial && !trialBannerDismissed && profileLoaded && (
             <div className="trial-banner">
               <span style={{ fontSize: '1rem' }}>⏳</span>
@@ -458,6 +453,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
       {showTour && (
         <DashboardTour onComplete={() => setShowTour(false)} />
+      )}
+
+      {/* Trial Expired Modal */}
+      {showTrialExpiredModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,31,29,0.5)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(6px)' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, border: '1px solid #e8d5cf', boxShadow: '0 24px 64px rgba(42,31,29,0.18)', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg, #2a1f1d, #3d2520)', padding: '28px 28px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>⏳</div>
+              <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.3rem', color: '#f5ede8', marginBottom: 6 }}>Your trial has ended</div>
+              <div style={{ fontSize: '0.8rem', color: 'rgba(245,237,232,0.55)', lineHeight: 1.6 }}>Your free trial has expired and your account has moved to the Free plan. Upgrade to keep Pro features.</div>
+            </div>
+            <div style={{ padding: '24px 28px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {['Unlimited forms & QR codes', 'AI complaint analysis', 'Custom QR designs', 'Weekly AI email digest', 'Advanced analytics & CSV export'].map(f => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', color: '#7a5a56' }}>
+                    <span style={{ color: '#4a7a5a', fontWeight: 700 }}>✓</span> {f}
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign: 'center', fontFamily: 'DM Serif Display, serif', fontSize: '1.6rem', color: '#2a1f1d', marginBottom: 4 }}>
+                $19<span style={{ fontSize: '0.9rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 400 }}>/mo</span>
+              </div>
+              <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#b09490', marginBottom: 16 }}>Cancel anytime · No commitment</div>
+              <button
+                onClick={() => { setShowTrialExpiredModal(false); router.push('/dashboard/profile') }}
+                style={{ width: '100%', padding: 12, borderRadius: 9, border: 'none', background: '#b05c52', color: '#fff', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', boxShadow: '0 3px 12px rgba(176,92,82,0.3)', marginBottom: 8 }}>
+                Upgrade to Pro →
+              </button>
+              <button
+                onClick={() => setShowTrialExpiredModal(false)}
+                style={{ width: '100%', padding: 10, borderRadius: 9, border: '1.5px solid #e8d5cf', background: 'transparent', color: '#7a5a56', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                Continue on Free plan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
