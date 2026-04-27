@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { jwtVerify } from 'jose'
+import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/supabase-server'
+
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(req: NextRequest) {
-  try {
-    const token = req.cookies.get('qrf_admin_session')?.value
-    if (!token) return NextResponse.json({ isAdmin: false })
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ isAdmin: false })
 
-    const secret = new TextEncoder().encode(process.env.ADMIN_JWT_SECRET!)
-    await jwtVerify(token, secret)
+  const { data: profile } = await adminSupabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
 
-    return NextResponse.json({ isAdmin: true })
-  } catch {
-    return NextResponse.json({ isAdmin: false })
-  }
+  return NextResponse.json({ isAdmin: !!profile?.is_admin })
 }

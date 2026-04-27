@@ -1,23 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { jwtVerify } from 'jose'
-
-async function verifyAdminCookie(request: NextRequest): Promise<boolean> {
-  try {
-    const token = request.cookies.get('qrf_admin_session')?.value
-    if (!token) return false
-    const secret = new TextEncoder().encode(process.env.ADMIN_JWT_SECRET!)
-    await jwtVerify(token, secret)
-    return true
-  } catch {
-    return false
-  }
-}
 
 export async function middleware(request: NextRequest) {
   const { searchParams, pathname } = new URL(request.url)
-
-  console.log('MW:', pathname, searchParams.toString())
 
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type')
@@ -31,29 +16,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ── Admin routes — completely separate from Supabase auth ──
-  if (pathname.startsWith('/qrf-admin')) {
-    const isAdmin = await verifyAdminCookie(request)
-    if (!isAdmin) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/admin-login'
-      return NextResponse.redirect(url)
-    }
-    return NextResponse.next()
-  }
-
-  // If already has valid admin cookie and visits admin-login, redirect to panel
-  if (pathname === '/auth/admin-login') {
-    const isAdmin = await verifyAdminCookie(request)
-    if (isAdmin) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/qrf-admin'
-      return NextResponse.redirect(url)
-    }
-    return NextResponse.next()
-  }
-
-  // ── Regular Supabase auth ──
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -72,9 +34,20 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const path = pathname
 
-  if (!user && path.startsWith('/dashboard')) {
+  // Admin routes — must be logged in (is_admin check happens in the page/API)
+  if (pathname.startsWith('/qrf-admin')) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
+    }
+    return supabaseResponse
+  }
+
+  // Regular dashboard protection
+  if (!user && pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
@@ -82,10 +55,9 @@ export async function middleware(request: NextRequest) {
 
   if (
     user &&
-    path.startsWith('/auth') &&
-    path !== '/auth/callback' &&
-    path !== '/auth/admin-login' &&
-    path !== '/auth/reset-password'
+    pathname.startsWith('/auth') &&
+    pathname !== '/auth/callback' &&
+    pathname !== '/auth/reset-password'
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'

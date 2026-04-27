@@ -16,6 +16,7 @@ type Profile = {
   onboarding_completed: boolean | null
   avatar_url: string | null
   trial_ends_at: string | null
+  is_admin: boolean | null   // ← add this
 }
 
 const navGroups = [
@@ -35,6 +36,9 @@ const navGroups = [
   { section: 'ACCOUNT', items: [
     { label: 'Profile',  href: '/dashboard/profile',  icon: '👤' },
     { label: 'Settings', href: '/dashboard/settings', icon: '⚙' },
+  ]},
+  { section: 'ADMIN', items: [
+    { label: 'Admin Panel', href: '/qrf-admin', icon: '⚡', adminOnly: true },
   ]},
 ]
 
@@ -112,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, email, plan, location_name, business_name, onboarding_completed, avatar_url, trial_ends_at')
+      .select('full_name, email, plan, location_name, business_name, onboarding_completed, avatar_url, trial_ends_at, is_admin')
       .eq('id', user.id)
       .single()
 
@@ -162,6 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isBusiness = profile?.plan === 'business'
   const isOnTrial = (profile?.plan === 'pro' || profile?.plan === 'business') && !!profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date()
   const daysLeft = isOnTrial && profile?.trial_ends_at ? getDaysLeft(profile.trial_ends_at) : 0
+  const isAdmin = !!profile?.is_admin
 
   const planLabel = isOnTrial
     ? `${profile?.plan === 'business' ? 'Business' : 'Pro'} · Trial`
@@ -199,6 +204,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {group.items.map(item => {
               if ((item as any).businessOnly && !isBusiness) return null
               if ((item as any).proAndAbove && isFree) return null
+              if ((item as any).adminOnly && !isAdmin) return null
               const isActive = (item as any).exact
                 ? pathname === item.href
                 : pathname.startsWith(item.href)
