@@ -102,7 +102,6 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'failed-ai' | 'signup-activity' | 'trial-expiry' | 'inactive' | 'contact-requests'>('users')
   const [failedAI, setFailedAI] = useState<any[]>([])
 
-  // Contact requests
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([])
   const [contactLoading, setContactLoading] = useState(false)
   const [selectedContact, setSelectedContact] = useState<ContactRequest | null>(null)
@@ -202,8 +201,8 @@ export default function AdminPage() {
     setActionLoading(false)
     if (json.success) {
       setActionMsg(`Plan updated to ${newPlan}`)
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan: newPlan } : u))
-      if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, plan: newPlan } : null)
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan: newPlan, trial_ends_at: null } : u))
+      if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, plan: newPlan, trial_ends_at: null } : null)
       setTimeout(() => setActionMsg(''), 3000)
     } else { setActionError(json.error || 'Failed to update plan') }
   }
@@ -312,7 +311,7 @@ export default function AdminPage() {
 
   const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
   const inactiveUsers = users.filter(u => new Date(u.last_sign_in_at || u.created_at) < sixMonthsAgo)
-  const trialExpiryUsers = users.filter(u => u.plan === 'pro' && u.trial_ends_at && new Date(u.trial_ends_at) > new Date())
+  const trialExpiryUsers = users.filter(u => (u.plan === 'pro' || u.plan === 'business') && u.trial_ends_at && new Date(u.trial_ends_at) > new Date())
     .sort((a, b) => new Date(a.trial_ends_at!).getTime() - new Date(b.trial_ends_at!).getTime())
   const signupData = getSignupChartData(users)
   const maxSignups = Math.max(...signupData.map(d => d.count), 1)
@@ -436,8 +435,6 @@ export default function AdminPage() {
         .send-btn { padding: 5px 12px; border-radius: 6px; border: none; background: var(--rose); color: #fff; font-size: 0.7rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
         .send-btn:hover { background: var(--rose-dark); }
         .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* Contact requests */
         .contact-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 10px; cursor: pointer; transition: all 0.15s; }
         .contact-card:hover { box-shadow: 0 4px 16px rgba(42,31,29,0.07); border-color: var(--border-md); }
         .contact-card.selected { border-color: var(--rose); background: var(--rose-soft); }
@@ -445,15 +442,12 @@ export default function AdminPage() {
         .contact-status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 20px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
         .contact-status.new { background: #fff3e8; color: #c4896a; border: 1px solid #f0d0b0; }
         .contact-status.replied { background: var(--green-soft); color: var(--green); border: 1px solid rgba(74,122,90,0.2); }
-
-        /* Signup chart */
         .chart-wrap { padding: 20px; }
         .chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
         .chart-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .chart-bar { width: 100%; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--rose), var(--terra)); min-height: 2px; transition: height 0.4s; }
         .chart-bar-label { font-size: 0.55rem; color: var(--text-soft); text-align: center; }
         .chart-bar-count { font-size: 0.6rem; font-weight: 700; color: var(--text); }
-
         @media (max-width: 900px) {
           .stats-grid { grid-template-columns: repeat(2, 1fr); }
           .table-header, .user-row { grid-template-columns: 2fr 1fr 1fr 80px; }
@@ -486,9 +480,10 @@ export default function AdminPage() {
             </button>
           </nav>
           <div className="sb-footer">
-            <button onClick={async () => { await fetch('/api/admin/logout', { method: 'POST' }); window.location.href = '/auth/admin-login' }}
+            <button
+              onClick={() => router.push('/dashboard')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', color: 'rgba(245,237,232,0.35)', fontSize: '0.75rem' }}>
-              ← Logout
+              ← Back to Dashboard
             </button>
           </div>
         </div>
@@ -559,7 +554,7 @@ export default function AdminPage() {
                   </div>
                   {filtered.length === 0 ? <div className="empty-state">No users found</div> : filtered.map(u => {
                     const planStyle = PLAN_COLORS[u.plan] || PLAN_COLORS.free
-                    const isTrialUser = u.plan === 'pro' && u.trial_ends_at && new Date(u.trial_ends_at) > new Date()
+                    const isTrialUser = (u.plan === 'pro' || u.plan === 'business') && u.trial_ends_at && new Date(u.trial_ends_at) > new Date()
                     return (
                       <div key={u.id} className={`user-row ${selectedUser?.id === u.id ? 'selected' : ''}`} onClick={() => setSelectedUser(u)}>
                         <div>
@@ -619,7 +614,6 @@ export default function AdminPage() {
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginLeft: 'auto' }}>{filteredContacts.length} requests</span>
                     <button onClick={loadContactRequests} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text-mid)', fontFamily: 'DM Sans, sans-serif' }}>↺</button>
                   </div>
-
                   {contactLoading ? (
                     <div className="empty-state">Loading...</div>
                   ) : filteredContacts.length === 0 ? (
@@ -656,47 +650,33 @@ export default function AdminPage() {
                     </div>
                   ))}
                 </div>
-
-                {/* Reply panel */}
                 {selectedContact && (
                   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px', alignSelf: 'flex-start', position: 'sticky', top: 80 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
                       <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '0.95rem', color: 'var(--text)' }}>Reply to {selectedContact.name}</div>
                       <button onClick={() => setSelectedContact(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-soft)', fontSize: '1rem' }}>✕</button>
                     </div>
-
-                    {/* Contact details summary */}
                     <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: '0.75rem', lineHeight: 1.8 }}>
                       <div><strong>Email:</strong> <span style={{ color: 'var(--rose)' }}>{selectedContact.email}</span></div>
                       <div><strong>Business:</strong> {selectedContact.business_name}</div>
                       <div><strong>Type:</strong> {BIZ_TYPE_LABELS[selectedContact.business_type] || selectedContact.business_type}</div>
                       {selectedContact.message && <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)', color: 'var(--text-mid)' }}><strong>Their message:</strong> {selectedContact.message}</div>}
                     </div>
-
                     {replyMsg && <div className="action-msg">✓ {replyMsg}</div>}
                     {replyError && <div className="action-err">✗ {replyError}</div>}
-
                     <div style={{ marginBottom: 8 }}>
                       <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Subject</label>
                       <input className="inline-input" style={{ marginBottom: 0 }} value={replySubject} onChange={e => setReplySubject(e.target.value)} />
                     </div>
-
                     <div style={{ marginBottom: 12 }}>
                       <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
                         Message <span style={{ fontWeight: 400, fontSize: '0.62rem', color: 'var(--text-soft)' }}>· from info@qrfeedback.ai</span>
                       </label>
                       <textarea className="inline-textarea" style={{ marginBottom: 0, minHeight: 160 }} value={replyBody} onChange={e => setReplyBody(e.target.value)} />
                     </div>
-
-                    <button
-                      className="action-btn rose"
-                      style={{ marginBottom: 0 }}
-                      disabled={replyLoading || !replyBody.trim()}
-                      onClick={handleSendReply}
-                    >
+                    <button className="action-btn rose" style={{ marginBottom: 0 }} disabled={replyLoading || !replyBody.trim()} onClick={handleSendReply}>
                       {replyLoading ? 'Sending...' : selectedContact.status === 'replied' ? '↩ Send Again' : '✉ Send Reply'}
                     </button>
-
                     {selectedContact.status === 'new' && (
                       <div style={{ fontSize: '0.68rem', color: 'var(--text-soft)', textAlign: 'center', marginTop: 8 }}>
                         Sending will mark this request as replied
@@ -776,7 +756,7 @@ export default function AdminPage() {
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-mid)' }}>{formatDate(u.trial_ends_at)}</div>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button className="view-btn" onClick={() => { setSelectedUser(u); setActiveTab('users') }}>View</button>
-                            <button className="send-btn" style={{ background: '#c4896a' }} disabled={actionLoading} onClick={() => handleSetTrial(u.id, 7, 'pro')}>+7 days</button>
+                            <button className="send-btn" style={{ background: '#c4896a' }} disabled={actionLoading} onClick={() => handleSetTrial(u.id, 7, u.plan as 'pro' | 'business')}>+7 days</button>
                           </div>
                         </div>
                       )
@@ -831,7 +811,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* User detail panel — only shown in users tab */}
+        {/* User detail panel */}
         {selectedUser && activeTab === 'users' && (
           <div className="detail-panel">
             <button className="detail-close" onClick={() => setSelectedUser(null)}>✕</button>
@@ -863,6 +843,7 @@ export default function AdminPage() {
 
             <div className="detail-section">
               <div className="detail-section-title">Change Plan</div>
+              <div className="info-box">Changing plan clears any active trial.</div>
               <select className="plan-select" value={selectedUser.plan} onChange={e => handlePlanChange(selectedUser.id, e.target.value)} disabled={actionLoading}>
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
