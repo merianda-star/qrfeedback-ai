@@ -30,6 +30,15 @@ type Screen = 'rating' | 'survey' | 'consent' | 'clipboard' | 'email-capture' | 
 
 const STAR_LABELS = ['', 'Terrible 😞', 'Poor 😕', 'Average 😐', 'Great 😊', 'Amazing 🤩']
 
+const ISSUE_OPTIONS: Record<string, string[]> = {
+  restaurant:  ['Food quality', 'Wait time', 'Staff service', 'Cleanliness', 'Pricing / Value'],
+  retail:      ['Product quality', 'Wait time', 'Staff service', 'Store cleanliness', 'Pricing / Value'],
+  healthcare:  ['Wait time', 'Staff attitude', 'Treatment quality', 'Cleanliness', 'Communication'],
+  services:    ['Quality of service', 'Response time', 'Staff professionalism', 'Value for money', 'Communication'],
+  hospitality: ['Room quality', 'Wait time', 'Staff service', 'Cleanliness', 'Pricing / Value'],
+  other:       ['Quality', 'Wait time', 'Staff service', 'Cleanliness', 'Pricing / Value'],
+}
+
 export default function FeedbackPage() {
   const params = useParams()
   const formId = params.id as string
@@ -54,6 +63,7 @@ export default function FeedbackPage() {
 
   const [ownerPlan, setOwnerPlan] = useState<string>('free')
   const [ownerBrand, setOwnerBrand] = useState<string>('')
+  const [ownerBusinessType, setOwnerBusinessType] = useState<string>('other')
 
   const isNeg = rating > 0 && rating < 4
   const negQuestion = questions.find(q => q.question_type === 'choice') || null
@@ -105,11 +115,12 @@ export default function FeedbackPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('plan, business_name')
+      .select('plan, business_name, business_type')
       .eq('id', data.user_id)
       .single()
     setOwnerPlan(profile?.plan || 'free')
     setOwnerBrand(profile?.business_name || '')
+    setOwnerBusinessType(profile?.business_type || 'other')
 
     const { data: qs } = await supabase
       .from('questions').select('*').eq('user_id', data.user_id).order('position')
@@ -200,6 +211,7 @@ export default function FeedbackPage() {
   )
 
   const starStr = rating > 0 ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : ''
+  const issueOptions = ISSUE_OPTIONS[ownerBusinessType] || ISSUE_OPTIONS.other
 
   return (
     <>
@@ -442,7 +454,7 @@ export default function FeedbackPage() {
                   )
                 })}
 
-                {/* Hardcoded neg question — multi-select */}
+                {/* Dynamic negative issue question — options based on business type */}
                 {isNeg && negQuestion && (
                   <div className={`q-card ${Array.isArray(answers[questions.length + 1]) && (answers[questions.length + 1] as string[]).length > 0 ? 'answered' : ''}`}>
                     <div className="q-meta">
@@ -452,7 +464,7 @@ export default function FeedbackPage() {
                     <div className="q-text">What was the main issue with your visit?<span className="req-dot">*</span></div>
                     <div className="mc-multi-hint">Select all that apply</div>
                     <div className="mc-opts">
-                      {['Food quality', 'Wait time', 'Staff service', 'Cleanliness', 'Pricing / Value'].map((opt, i) => {
+                      {issueOptions.map((opt, i) => {
                         const curVal = answers[questions.length + 1]
                         const selected = Array.isArray(curVal) ? curVal.includes(opt) : curVal === opt
                         return (
