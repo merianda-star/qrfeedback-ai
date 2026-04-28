@@ -31,6 +31,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   pricing: '#a07820', waiting: '#5a5ab0', other: '#7a5a56',
 }
 
+const DIGEST_LIMITS: Record<string, number> = { pro: 2, business: 4 }
+
 function formatWeek(start: string, end: string) {
   const s = new Date(start); const e = new Date(end)
   return `${s.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${e.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
@@ -55,16 +57,6 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-function getCurrentMonday(): Date {
-  const d = new Date()
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-// Mini calendar — click a date, highlights forward 7 days
 function WeekCalendar({ selectedStart, onSelectStart }: { selectedStart: Date | null; onSelectStart: (d: Date) => void }) {
   const [calMonth, setCalMonth] = useState(() => {
     const d = new Date()
@@ -75,7 +67,7 @@ function WeekCalendar({ selectedStart, onSelectStart }: { selectedStart: Date | 
   const year = calMonth.getFullYear()
   const month = calMonth.getMonth()
   const firstDay = new Date(year, month, 1)
-  const startOffset = (firstDay.getDay() + 6) % 7 // Mon = 0
+  const startOffset = (firstDay.getDay() + 6) % 7
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
   const cells: (Date | null)[] = []
@@ -110,7 +102,6 @@ function WeekCalendar({ selectedStart, onSelectStart }: { selectedStart: Date | 
           const end = isEnd(day)
           const isToday = isSameDay(day, today)
           const isFuture = day > today
-
           return (
             <div
               key={i}
@@ -147,22 +138,18 @@ function SentimentDonut({ positive, negative }: { positive: number; negative: nu
   const negPct = negative / total
   const r = 36, cx = 44, cy = 44, stroke = 10
   const circ = 2 * Math.PI * r
-  // Start from top (offset by 25% of circumference)
   const startOffset = circ * 0.25
   const posArc = circ * posPct
   const negArc = circ * negPct
   return (
     <svg width={88} height={88} viewBox="0 0 88 88">
-      {/* Background track */}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f0ebe8" strokeWidth={stroke} />
-      {/* Positive arc — starts at top */}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4a7a5a" strokeWidth={stroke}
         strokeDasharray={`${posArc} ${circ - posArc}`}
         strokeDashoffset={startOffset}
         strokeLinecap="butt"
         style={{ transition: 'stroke-dasharray 0.6s ease' }}
       />
-      {/* Negative arc — starts right after positive ends */}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#b05c52" strokeWidth={stroke}
         strokeDasharray={`${negArc} ${circ - negArc}`}
         strokeDashoffset={startOffset - posArc}
@@ -241,51 +228,57 @@ export default function DigestPage() {
   const router = useRouter()
   const [digests, setDigests] = useState<Digest[]>([])
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
   const [generatingCustom, setGeneratingCustom] = useState(false)
   const [genMsg, setGenMsg] = useState('')
   const [genError, setGenError] = useState('')
   const [selected, setSelected] = useState<Digest | null>(null)
-  const [userId, setUserId] = useState('')
+  const [plan, setPlan] = useState('pro')
+
+  // Custom generation limit state
+  const [digestUsed, setDigestUsed] = useState(0)
+  const [digestLimit, setDigestLimit] = useState(2)
 
   // Date range state
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
+
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
-    setUserId(user.id)
 
     const { data: profile } = await supabase
       .from('profiles').select('plan').eq('id', user.id).single()
-    if (!profile || (profile.plan !== 'business' && profile.plan !== 'pro')) {
+    const userPlan = profile?.plan || 'free'
+    if (userPlan !== 'business' && userPlan !== 'pro') {
       router.push('/dashboard'); return
     }
+    setPlan(userPlan)
+    setDigestLimit(DIGEST_LIMITS[userPlan] ?? 2)
 
+    // Load digests
     const { data } = await supabase
       .from('weekly_digests').select('*').eq('user_id', user.id)
       .order('week_start', { ascending: false }).limit(8)
     setDigests(data || [])
     if (data && data.length > 0) setSelected(data[0])
-    setLoading(false)
-  }
 
-  async function generateDigest() {
-    setGenerating(true)
-    setGenMsg(''); setGenError('')
-    const res = await fetch('/api/digest/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-    const json = await res.json()
-    setGenerating(false)
-    if (json.success) {
-      setGenMsg(`✓ Digest generated for ${json.totalResponses} responses!`)
-      setTimeout(() => setGenMsg(''), 5000)
-      loadData()
-    } else {
-      setGenError(json.reason || json.error || 'Failed to generate digest')
-    }
+    // Load this month's custom digest usage
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const { count } = await supabase
+      .from('ai_usage')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('usage_type', 'digest')
+      .gte('used_at', monthStart)
+    setDigestUsed(count ?? 0)
+
+    setLoading(false)
   }
 
   async function generateCustomDigest() {
@@ -299,22 +292,28 @@ export default function DigestPage() {
       body: JSON.stringify({
         custom_start: toDateStr(rangeStart),
         custom_end: toDateStr(weekEnd),
-        tz_offset: new Date().getTimezoneOffset(), // e.g. IST = -330
+        tz_offset: new Date().getTimezoneOffset(),
       }),
     })
     const json = await res.json()
     setGeneratingCustom(false)
+
+    if (json.limit_reached) {
+      setGenError(json.error)
+      return
+    }
+
     if (json.success) {
-      setGenMsg(`✓ Custom digest generated for ${json.totalResponses} responses!`)
+      setGenMsg(`✓ Digest generated for ${json.totalResponses} responses!`)
       setShowDatePicker(false); setRangeStart(null)
+      // Update usage count from response
+      if (typeof json.used === 'number') setDigestUsed(json.used)
       setTimeout(() => setGenMsg(''), 5000)
       loadData()
     } else {
       setGenError(json.reason || json.error || 'Failed to generate digest')
     }
   }
-
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   async function deleteDigest(dig: Digest, e: React.MouseEvent) {
     e.stopPropagation()
@@ -334,49 +333,31 @@ export default function DigestPage() {
     setDeletingId(null)
   }
 
-  const [downloading, setDownloading] = useState(false)
-
   async function downloadPDF() {
     if (!d || downloading) return
     setDownloading(true)
-
     const { default: html2canvas } = await import('html2canvas')
     const { jsPDF } = await import('jspdf')
-
     const element = document.getElementById('digest-content')
     if (!element) { setDownloading(false); return }
-
     const originalWidth = element.style.width
     const originalMaxWidth = element.style.maxWidth
     element.style.width = '900px'
     element.style.maxWidth = '900px'
-
-    // Hide the download button during capture
     const dlBtn = document.getElementById('pdf-download-btn')
     if (dlBtn) dlBtn.style.visibility = 'hidden'
-
     const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#fdf6f4',
-      width: 900,
-      windowWidth: 900,
+      scale: 2, useCORS: true, backgroundColor: '#fdf6f4', width: 900, windowWidth: 900,
     })
-
     if (dlBtn) dlBtn.style.visibility = 'visible'
     element.style.width = originalWidth
     element.style.maxWidth = originalMaxWidth
-
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const pdfW = 210
-    const pdfH = 297
-    const margin = 8
+    const pdfW = 210, pdfH = 297, margin = 8
     const contentW = pdfW - margin * 2
-
     const pxToMm = contentW / canvas.width
     const pageContentH = pdfH - margin * 2
     const pxPerPage = pageContentH / pxToMm
-
     for (let page = 0; page * pxPerPage < canvas.height; page++) {
       if (page > 0) pdf.addPage()
       const srcY = Math.floor(page * pxPerPage)
@@ -390,13 +371,15 @@ export default function DigestPage() {
       ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH)
       pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentW, srcH * pxToMm)
     }
-
     pdf.save(`digest-${d.week_start}-to-${d.week_end}.pdf`)
     setDownloading(false)
   }
 
   const trendIcon = (t: string) => t === 'improving' ? '📈' : t === 'declining' ? '📉' : '➡️'
   const trendColor = (t: string) => t === 'improving' ? '#4a7a5a' : t === 'declining' ? '#b05c52' : '#c4896a'
+
+  const limitReached = digestUsed >= digestLimit
+  const remaining = Math.max(0, digestLimit - digestUsed)
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
@@ -405,9 +388,6 @@ export default function DigestPage() {
   )
 
   const d = selected
-  const monday = getCurrentMonday()
-  const sunday = addDays(monday, 6)
-  const currentWeekLabel = `${monday.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${sunday.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
 
   return (
     <>
@@ -420,29 +400,26 @@ export default function DigestPage() {
         }
         .digest-wrap { display: grid; grid-template-columns: 260px 1fr; gap: 20px; max-width: 1060px; }
         .digest-sidebar { display: flex; flex-direction: column; gap: 10px; }
-
-        .gen-btn { width: 100%; padding: 11px 14px; border-radius: 10px; border: none; background: var(--rose); color: #fff; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 3px 10px rgba(176,92,82,0.25); text-align: left; display: flex; flex-direction: column; gap: 2px; }
-        .gen-btn:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
-        .gen-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .gen-btn-label { font-size: 0.82rem; font-weight: 700; }
-        .gen-btn-week { font-size: 0.62rem; font-weight: 400; opacity: 0.75; }
-
         .divider-row { display: flex; align-items: center; gap: 8px; }
         .divider-line { flex: 1; height: 1px; background: var(--border); }
         .divider-text { font-size: 0.58rem; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
-
         .custom-toggle { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-mid); font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
-        .custom-toggle:hover { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
+        .custom-toggle:hover:not(:disabled) { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
         .custom-toggle.open { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
-
+        .custom-toggle:disabled { opacity: 0.5; cursor: not-allowed; }
         .gen-range-btn { width: 100%; padding: 10px; border-radius: 9px; border: none; background: var(--rose); color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 2px 8px rgba(176,92,82,0.2); }
         .gen-range-btn:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
         .gen-range-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .cal-hint { font-size: 0.68rem; color: var(--text-soft); text-align: center; padding: 2px 0; }
-
         .gen-msg { background: var(--green-soft); border: 1px solid rgba(74,122,90,0.25); border-radius: 8px; padding: 9px 12px; font-size: 0.74rem; color: var(--green); font-weight: 600; }
         .gen-err { background: var(--rose-soft); border: 1px solid rgba(176,92,82,0.2); border-radius: 8px; padding: 9px 12px; font-size: 0.74rem; color: var(--rose); }
-
+        .usage-bar-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+        .usage-bar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+        .usage-bar-label { font-size: 0.68rem; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.5px; }
+        .usage-bar-count { font-size: 0.72rem; font-weight: 700; color: var(--text); }
+        .usage-track { height: 5px; background: var(--rose-soft); border-radius: 3px; overflow: hidden; margin-bottom: 5px; }
+        .usage-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+        .usage-reset { font-size: 0.62rem; color: var(--text-soft); }
         .digest-list { display: flex; flex-direction: column; gap: 8px; }
         .digest-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all 0.15s; }
         .digest-item:hover { border-color: var(--rose); }
@@ -453,7 +430,6 @@ export default function DigestPage() {
         .digest-item:hover .digest-delete-btn { opacity: 1; }
         .digest-delete-btn:hover { background: #fef5f4; color: var(--rose); }
         .digest-delete-btn:disabled { cursor: not-allowed; opacity: 0.5; }
-
         .digest-main { display: flex; flex-direction: column; gap: 14px; }
         .d-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
         .d-card-title { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
@@ -473,6 +449,7 @@ export default function DigestPage() {
         .empty-icon { font-size: 2.5rem; margin-bottom: 14px; }
         .empty-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
         .empty-sub { font-size: 0.78rem; color: var(--text-soft); line-height: 1.6; margin-bottom: 20px; }
+        .cron-notice { background: var(--green-soft); border: 1px solid rgba(74,122,90,0.2); border-radius: 9px; padding: 10px 13px; font-size: 0.7rem; color: #4a7a5a; line-height: 1.5; display: flex; gap: 7px; }
         @media (max-width: 760px) { .digest-wrap { grid-template-columns: 1fr; } .stats-row { grid-template-columns: repeat(2,1fr); } }
       `}</style>
 
@@ -480,30 +457,51 @@ export default function DigestPage() {
         {/* ── Sidebar ── */}
         <div className="digest-sidebar">
 
-          {/* Generate current Mon–Sun */}
-          <button className="gen-btn" onClick={generateDigest} disabled={generating || generatingCustom}>
-            <span className="gen-btn-label">{generating ? '⏳ Generating...' : '✦ Generate This Week\'s Digest'}</span>
-            <span className="gen-btn-week">{currentWeekLabel}</span>
-          </button>
+          {/* Auto digest notice */}
+          <div className="cron-notice">
+            <span style={{ flexShrink: 0 }}>🔄</span>
+            <span>Weekly digest is auto-generated every <strong>Monday at 8am</strong> and doesn't count against your limit.</span>
+          </div>
 
-          {/* Divider */}
-          <div className="divider-row">
-            <div className="divider-line" />
-            <span className="divider-text">or custom range</span>
-            <div className="divider-line" />
+          {/* Usage bar for custom generations */}
+          <div className="usage-bar-wrap">
+            <div className="usage-bar-header">
+              <span className="usage-bar-label">Custom Digests</span>
+              <span className="usage-bar-count" style={{ color: limitReached ? 'var(--rose)' : 'var(--text)' }}>
+                {digestUsed} / {digestLimit}
+              </span>
+            </div>
+            <div className="usage-track">
+              <div className="usage-fill" style={{
+                width: `${Math.min((digestUsed / digestLimit) * 100, 100)}%`,
+                background: limitReached ? '#b05c52' : digestUsed / digestLimit > 0.6 ? '#c4896a' : '#4a7a5a',
+              }} />
+            </div>
+            <div className="usage-reset">
+              {limitReached
+                ? '⚠ Limit reached — resets 1st of next month'
+                : `${remaining} generation${remaining !== 1 ? 's' : ''} remaining this month`
+              }
+            </div>
           </div>
 
           {/* Custom date range toggle */}
           <button
             className={`custom-toggle ${showDatePicker ? 'open' : ''}`}
+            disabled={limitReached}
             onClick={() => { setShowDatePicker(!showDatePicker); setRangeStart(null) }}
           >
             <span>📅 Custom Date Range</span>
             <span style={{ fontSize: '0.75rem' }}>{showDatePicker ? '▲' : '▼'}</span>
           </button>
 
-          {/* Calendar — only shown when toggled open */}
-          {showDatePicker && (
+          {limitReached && (
+            <div className="gen-err" style={{ fontSize: '0.72rem' }}>
+              You've used all {digestLimit} custom digests for this month. Your limit resets on the 1st of next month.
+            </div>
+          )}
+
+          {showDatePicker && !limitReached && (
             <>
               <WeekCalendar selectedStart={rangeStart} onSelectStart={setRangeStart} />
               {rangeStart ? (
@@ -552,10 +550,10 @@ export default function DigestPage() {
           <div className="empty-state">
             <div className="empty-icon">📊</div>
             <div className="empty-title">No digests yet</div>
-            <div className="empty-sub">Generate your first weekly digest to see an AI-powered overview of your feedback, trends, and action items.</div>
-            <button className="gen-btn" style={{ maxWidth: 260, margin: '0 auto' }} onClick={generateDigest} disabled={generating}>
-              {generating ? '⏳ Generating...' : '✦ Generate First Digest'}
-            </button>
+            <div className="empty-sub">
+              Your weekly digest is automatically generated every Monday at 8am.<br />
+              You can also generate a custom date range digest using the panel on the left.
+            </div>
           </div>
         ) : (
           <div className="digest-main" id="digest-content">

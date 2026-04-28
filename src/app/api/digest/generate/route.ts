@@ -9,10 +9,14 @@ const adminSupabase = createClient(
 )
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-// Returns the Monday of the current week at 00:00:00
+const DIGEST_LIMITS: Record<string, number> = {
+  pro: 2,
+  business: 4,
+}
+
 function getCurrentMonday(): Date {
   const d = new Date()
-  const day = d.getDay() // 0 = Sun, 1 = Mon ...
+  const day = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
   d.setHours(0, 0, 0, 0)
@@ -20,31 +24,64 @@ function getCurrentMonday(): Date {
 }
 
 export async function POST(req: NextRequest) {
-  // Parse body for custom_start / custom_end
   let customStart: string | null = null
   let customEnd: string | null = null
   let tzOffset: number = 0
+
   try {
     const body = await req.json()
     customStart = body?.custom_start || null
     customEnd = body?.custom_end || null
-    tzOffset = body?.tz_offset ?? 0 // minutes behind UTC, e.g. IST = -330
-  } catch {
-    // No body — fine
-  }
+    tzOffset = body?.tz_offset ?? 0
+  } catch {}
 
+  // ── Cron bypass — runs for all users, no limit check ──
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
   if (authHeader === `Bearer ${cronSecret}` && cronSecret) {
     return await processAllUsers()
   }
 
+  // ── Manual user request — check auth + plan + limit ──
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await adminSupabase
-    .from('profiles').select('business_name, alert_email').eq('id', user.id).single()
+    .from('profiles')
+    .select('business_name, alert_email, plan')
+    .eq('id', user.id)
+    .single()
+
+  const plan = profile?.plan || 'free'
+  const limit = DIGEST_LIMITS[plan] ?? 0
+
+  if (limit === 0) {
+    return NextResponse.json({ error: 'Weekly digest is not available on the Free plan.' }, { status: 403 })
+  }
+
+  // Count manual digest generations this calendar month
+  const now = new Date()
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
+
+  const { count } = await adminSupabase
+    .from('ai_usage')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('usage_type', 'digest')
+    .gte('used_at', monthStart)
+
+  const used = count ?? 0
+
+  if (used >= limit) {
+    return NextResponse.json({
+      error: `You've used all ${limit} custom digest generation${limit !== 1 ? 's' : ''} for this month.`,
+      limit,
+      used,
+      limit_reached: true,
+    }, { status: 429 })
+  }
+
   const businessName = profile?.business_name || 'Your Business'
   const emailTo = profile?.alert_email || user.email || ''
 
@@ -52,22 +89,44 @@ export async function POST(req: NextRequest) {
     user.id, user.email || '', businessName, emailTo,
     customStart, customEnd, tzOffset
   )
-  return NextResponse.json(result)
+
+  // Record the usage if generation succeeded
+  if ((result as any).success) {
+    await adminSupabase.from('ai_usage').insert({
+      user_id: user.id,
+      usage_type: 'digest',
+    })
+  }
+
+  // Return usage info alongside result so UI can update
+  return NextResponse.json({
+    ...result,
+    used: used + 1,
+    limit,
+    remaining: Math.max(0, limit - used - 1),
+  })
 }
 
 async function processAllUsers() {
   const { data: profiles } = await adminSupabase
-    .from('profiles').select('id, email, business_name, alert_email, weekly_digest')
+    .from('profiles')
+    .select('id, email, business_name, alert_email, weekly_digest, plan')
     .eq('weekly_digest', true)
-  if (!profiles || profiles.length === 0) return NextResponse.json({ processed: 0 })
+    .in('plan', ['pro', 'business'])
+
+  if (!profiles || profiles.length === 0) {
+    return NextResponse.json({ processed: 0 })
+  }
+
   const results = []
   for (const p of profiles) {
     const result = await generateDigestForUser(
-      p.id, p.email, p.business_name || 'Your Business', p.alert_email || p.email,
-      null, null
+      p.id, p.email, p.business_name || 'Your Business',
+      p.alert_email || p.email, null, null
     )
     results.push(result)
   }
+
   return NextResponse.json({ processed: results.length, results })
 }
 
@@ -84,22 +143,18 @@ async function generateDigestForUser(
   let weekEnd: Date
 
   if (customStart && customEnd) {
-    // Use timezone offset from client (in minutes, e.g. IST = -330)
-    // so queries align with the user's local midnight, not UTC midnight
     const offsetMs = (tzOffset ?? 0) * 60 * 1000
     const [sy, sm, sd] = customStart.split('-').map(Number)
     const [ey, em, ed] = customEnd.split('-').map(Number)
     weekStart = new Date(Date.UTC(sy, sm - 1, sd, 0, 0, 0, 0) + offsetMs)
     weekEnd = new Date(Date.UTC(ey, em - 1, ed, 23, 59, 59, 999) + offsetMs)
   } else {
-    // Default: snap to current Monday → Sunday
     weekStart = getCurrentMonday()
     weekEnd = new Date(weekStart)
     weekEnd.setDate(weekEnd.getDate() + 6)
     weekEnd.setHours(23, 59, 59, 999)
   }
 
-  // Previous week for trend comparison
   const prevWeekStart = new Date(weekStart)
   prevWeekStart.setDate(prevWeekStart.getDate() - 7)
   const prevWeekEnd = new Date(weekStart)
@@ -218,7 +273,6 @@ async function generateDigestForUser(
 
   if (error) return { success: false, reason: error.message }
 
-  // Send email if applicable
   if (emailTo && totalResponses > 0) {
     const weekLabel = `${weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
     const trendIcon = sentimentTrend === 'improving' ? '📈' : sentimentTrend === 'declining' ? '📉' : '➡️'
