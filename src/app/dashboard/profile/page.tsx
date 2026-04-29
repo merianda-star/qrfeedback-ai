@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const PLAN_FEATURES: Record<string, { label: string; price: string; features: string[]; locked: string[] }> = {
   free: {
@@ -22,9 +22,10 @@ const PLAN_FEATURES: Record<string, { label: string; price: string; features: st
   },
 }
 
-export default function ProfilePage() {
+function ProfilePageInner() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
 
   const [businessName, setBusinessName] = useState('')
@@ -44,15 +45,21 @@ export default function ProfilePage() {
   const [accountError, setAccountError] = useState('')
 
   const [plan, setPlan] = useState('free')
+  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null)
 
-  // Avatar (profile photo)
+  // Stripe state
+  const [checkingOut, setCheckingOut] = useState<'pro' | 'business' | null>(null)
+  const [openingPortal, setOpeningPortal] = useState(false)
+  const [showCancelledBanner, setShowCancelledBanner] = useState(false)
+
+  // Avatar
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Brand logo (for QR codes) — Business plan only
+  // Brand logo — Business plan only
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -60,7 +67,13 @@ export default function ProfilePage() {
   const [savedLogo, setSavedLogo] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    if (searchParams.get('cancelled') === 'true') {
+      setShowCancelledBanner(true)
+      setTimeout(() => setShowCancelledBanner(false), 5000)
+    }
+    loadData()
+  }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -76,10 +89,52 @@ export default function ProfilePage() {
       setPlan(data.plan || 'free')
       setAvatarUrl(data.avatar_url || null)
       setLogoUrl(data.logo_url || null)
+      setStripeCustomerId(data.stripe_customer_id || null)
     }
     setLoading(false)
   }
 
+  // ── Stripe checkout ───────────────────────────────────────────────
+  async function handleCheckout(targetPlan: 'pro' | 'business') {
+    setCheckingOut(targetPlan)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: targetPlan }),
+      })
+      const json = await res.json()
+      if (json.url) {
+        window.location.href = json.url
+      } else {
+        alert(json.error || 'Something went wrong. Please try again.')
+        setCheckingOut(null)
+      }
+    } catch {
+      alert('Network error. Please try again.')
+      setCheckingOut(null)
+    }
+  }
+
+  // ── Stripe billing portal ─────────────────────────────────────────
+  async function handleBillingPortal() {
+    setOpeningPortal(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const json = await res.json()
+      if (json.url) {
+        window.location.href = json.url
+      } else {
+        alert(json.error || 'Could not open billing portal. Please try again.')
+        setOpeningPortal(false)
+      }
+    } catch {
+      alert('Network error. Please try again.')
+      setOpeningPortal(false)
+    }
+  }
+
+  // ── Avatar upload ─────────────────────────────────────────────────
   async function uploadAvatar(file: File) {
     setUploadingAvatar(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -96,6 +151,7 @@ export default function ProfilePage() {
     setUploadingAvatar(false)
   }
 
+  // ── Logo upload ───────────────────────────────────────────────────
   async function uploadLogo(file: File) {
     setUploadingLogo(true)
     const { data: { user } } = await supabase.auth.getUser()
@@ -175,9 +231,9 @@ export default function ProfilePage() {
   )
 
   const planInfo = PLAN_FEATURES[plan] || PLAN_FEATURES.free
-  const nextPlanLabel = plan === 'free' ? 'Pro / Business' : plan === 'pro' ? 'Business' : null
   const currentLogo = logoPreview || logoUrl
   const isBusiness = plan === 'business'
+  const isPaid = plan === 'pro' || plan === 'business'
 
   return (
     <>
@@ -206,17 +262,34 @@ export default function ProfilePage() {
         .save-btn:disabled { opacity: 0.55; cursor: not-allowed; }
         .save-btn.saved { background: #4a7a5a; box-shadow: 0 2px 8px rgba(74,122,90,0.2); }
         .save-btn.inline { width: auto; padding: 9px 28px; }
-        .plan-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+
+        /* ── Plan & Billing ── */
+        .plan-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
         .plan-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; background: var(--rose-soft); color: var(--rose); border: 1px solid var(--border-md); }
         .plan-badge.pro { background: #fef3e8; color: var(--terra); border-color: #f0d8c0; }
         .plan-badge.business { background: var(--green-soft); color: var(--green); border-color: #c0d8c8; }
-        .upgrade-btn { padding: 7px 16px; border-radius: 8px; border: none; background: var(--rose); color: #fff; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; box-shadow: 0 2px 8px rgba(176,92,82,0.2); transition: all 0.15s; }
-        .upgrade-btn:hover { background: var(--rose-dark); transform: translateY(-1px); }
-        .feature-list { list-style: none; padding: 0; margin: 0; }
+        .feature-list { list-style: none; padding: 0; margin: 0 0 18px 0; }
         .feature-item { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; padding: 4px 0; color: var(--text-mid); }
         .feature-item.locked { color: var(--text-soft); }
         .feature-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
         .feature-dot.locked { background: #ddd0cc; }
+
+        /* Upgrade buttons */
+        .upgrade-btn { padding: 9px 18px; border-radius: 8px; border: none; background: var(--rose); color: #fff; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; box-shadow: 0 2px 8px rgba(176,92,82,0.2); transition: all 0.15s; width: 100%; text-align: center; display: block; margin-bottom: 8px; }
+        .upgrade-btn:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
+        .upgrade-btn:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+        .upgrade-btn.secondary { background: transparent; color: var(--rose); border: 1.5px solid var(--rose); box-shadow: none; }
+        .upgrade-btn.secondary:hover:not(:disabled) { background: var(--rose-soft); transform: translateY(-1px); }
+        .portal-btn { width: 100%; padding: 9px 18px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-mid); font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; text-align: center; display: block; }
+        .portal-btn:hover:not(:disabled) { border-color: var(--border-md); color: var(--text); background: var(--rose-soft); }
+        .portal-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        /* Banners */
+        .info-banner { border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 0.76rem; line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; }
+        .info-banner.warning { background: #fff9f0; border: 1px solid #f0d8a0; color: #7a5020; }
+        .info-banner.cancelled { background: var(--rose-soft); border: 1px solid var(--border); color: #8c3d34; }
+
+        /* Avatar */
         .avatar-section { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; padding: 16px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); }
         .avatar-circle { width: 72px; height: 72px; border-radius: 50%; background: var(--rose-soft); border: 2px solid var(--border-md); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
@@ -230,6 +303,8 @@ export default function ProfilePage() {
         .avatar-btn.secondary:hover { background: var(--rose-soft); border-color: var(--border-md); }
         .avatar-btn.danger { border: 1px solid #f0c4be; background: #fef5f4; color: #8c3d34; }
         .avatar-btn.danger:hover { background: #fde8e5; }
+
+        /* Logo */
         .logo-section { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
         .logo-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .logo-section-title { font-size: 0.78rem; font-weight: 700; color: var(--text); }
@@ -241,6 +316,11 @@ export default function ProfilePage() {
         .logo-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.6rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--green-soft); color: var(--green); border: 1px solid rgba(74,122,90,0.2); }
         .logo-locked { background: var(--rose-soft); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
         .logo-locked-text { font-size: 0.78rem; color: var(--text-mid); flex: 1; line-height: 1.5; }
+        .logo-upgrade-btn { padding: 6px 14px; border-radius: 7px; border: none; background: var(--rose); color: #fff; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; transition: all 0.15s; }
+        .logo-upgrade-btn:hover:not(:disabled) { background: var(--rose-dark); }
+        .logo-upgrade-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        /* Form layout */
         .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
         .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px 20px; }
         .pw-section-label { font-size: 0.7rem; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.6px; margin: 16px 0 12px; display: flex; align-items: center; gap: 8px; }
@@ -250,12 +330,20 @@ export default function ProfilePage() {
         @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } .two-col, .three-col { grid-template-columns: 1fr; } }
       `}</style>
 
+      {/* Cancelled banner */}
+      {showCancelledBanner && (
+        <div className="info-banner cancelled" style={{ marginBottom: 16 }}>
+          <span>ℹ</span>
+          <span>Checkout was cancelled. No charge was made. You can upgrade anytime from this page.</span>
+        </div>
+      )}
+
       <div className="profile-grid">
 
+        {/* ── Business Profile ── */}
         <div className="s-card">
           <div className="s-card-title">🏢 Business Profile</div>
 
-          {/* Brand Logo — Business plan only */}
           {isBusiness ? (
             <div className="logo-section">
               <div className="logo-section-header">
@@ -293,9 +381,7 @@ export default function ProfilePage() {
                         <button className="avatar-btn secondary" onClick={() => logoInputRef.current?.click()}>
                           {logoUrl ? '↑ Change Logo' : '↑ Upload Logo'}
                         </button>
-                        {logoUrl && (
-                          <button className="avatar-btn danger" onClick={removeLogo}>Remove</button>
-                        )}
+                        {logoUrl && <button className="avatar-btn danger" onClick={removeLogo}>Remove</button>}
                       </>
                     )}
                   </div>
@@ -308,7 +394,13 @@ export default function ProfilePage() {
               <div className="logo-locked-text">
                 <strong>Brand Logo on QR</strong> is a Business plan feature. Upgrade to add your logo to the center of your QR codes.
               </div>
-              <button className="upgrade-btn" onClick={() => {}}>Upgrade</button>
+              <button
+                className="logo-upgrade-btn"
+                onClick={() => handleCheckout('business')}
+                disabled={checkingOut === 'business'}
+              >
+                {checkingOut === 'business' ? '⏳...' : 'Upgrade'}
+              </button>
             </div>
           )}
 
@@ -344,14 +436,14 @@ export default function ProfilePage() {
           </button>
         </div>
 
+        {/* ── Plan & Billing ── */}
         <div className="s-card">
           <div className="s-card-title">💳 Plan & Billing</div>
+
           <div className="plan-header">
             <span className={`plan-badge ${plan}`}>{planInfo.label} — {planInfo.price}</span>
-            {nextPlanLabel && (
-              <button className="upgrade-btn">Upgrade to {nextPlanLabel}</button>
-            )}
           </div>
+
           <ul className="feature-list">
             {planInfo.features.map(f => (
               <li key={f} className="feature-item"><span className="feature-dot"></span>{f}</li>
@@ -360,8 +452,73 @@ export default function ProfilePage() {
               <li key={f} className="feature-item locked"><span className="feature-dot locked"></span>{f}</li>
             ))}
           </ul>
+
+          {/* Free plan — show upgrade options */}
+          {plan === 'free' && (
+            <>
+              <div className="info-banner warning">
+                <span>💡</span>
+                <span>Upgrade to unlock AI complaint analysis, unlimited forms, weekly digests, and more.</span>
+              </div>
+              <button
+                className="upgrade-btn"
+                onClick={() => handleCheckout('pro')}
+                disabled={checkingOut === 'pro'}
+              >
+                {checkingOut === 'pro' ? '⏳ Redirecting to checkout...' : '💳 Upgrade to Pro — $19/mo'}
+              </button>
+              <button
+                className="upgrade-btn secondary"
+                onClick={() => handleCheckout('business')}
+                disabled={checkingOut === 'business'}
+              >
+                {checkingOut === 'business' ? '⏳ Redirecting to checkout...' : 'Upgrade to Business — $49/mo'}
+              </button>
+            </>
+          )}
+
+          {/* Pro plan — show upgrade to business + manage billing */}
+          {plan === 'pro' && (
+            <>
+              <button
+                className="upgrade-btn"
+                onClick={() => handleCheckout('business')}
+                disabled={checkingOut === 'business'}
+              >
+                {checkingOut === 'business' ? '⏳ Redirecting to checkout...' : '🚀 Upgrade to Business — $49/mo'}
+              </button>
+              {stripeCustomerId && (
+                <button
+                  className="portal-btn"
+                  onClick={handleBillingPortal}
+                  disabled={openingPortal}
+                >
+                  {openingPortal ? '⏳ Opening...' : '🔗 Manage Billing & Invoices'}
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Business plan — manage billing only */}
+          {plan === 'business' && stripeCustomerId && (
+            <button
+              className="portal-btn"
+              onClick={handleBillingPortal}
+              disabled={openingPortal}
+            >
+              {openingPortal ? '⏳ Opening...' : '🔗 Manage Billing & Invoices'}
+            </button>
+          )}
+
+          {/* Show note for admin-granted plans (no stripe_customer_id) */}
+          {isPaid && !stripeCustomerId && (
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginTop: 8, fontStyle: 'italic' }}>
+              Your plan was activated by the QRFeedback.ai team. Contact us at info@qrfeedback.ai for billing queries.
+            </div>
+          )}
         </div>
 
+        {/* ── Account ── */}
         <div className="s-card full">
           <div className="s-card-title">👤 Account</div>
           <div className="avatar-section">
@@ -373,7 +530,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>Profile Photo</div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginBottom: 0 }}>JPG or PNG, up to 5MB</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>JPG or PNG, up to 5MB</div>
               <div className="avatar-actions">
                 <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
                 {avatarFile ? (
@@ -430,5 +587,12 @@ export default function ProfilePage() {
 
       </div>
     </>
+  )
+}
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <ProfilePageInner />
+    </Suspense>
   )
 }
