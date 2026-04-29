@@ -1,4 +1,4 @@
-'use client' 
+'use client'
 import Link from 'next/link'
 import { Suspense, useState } from 'react'
 import CodeRedirector from '@/components/CodeRedirector'
@@ -12,6 +12,32 @@ export default function HomePage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  // Stripe checkout state
+  const [checkingOut, setCheckingOut] = useState<'pro' | 'business' | null>(null)
+
+  async function handleCheckout(plan: 'pro' | 'business') {
+    setCheckingOut(plan)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      })
+      const json = await res.json()
+      if (json.url) {
+        window.location.href = json.url
+      } else if (json.error === 'Unauthorized') {
+        // Not logged in — send to register first
+        window.location.href = '/auth/register?redirect=pricing'
+      } else {
+        alert(json.error || 'Something went wrong. Please try again.')
+      }
+    } catch {
+      alert('Network error. Please try again.')
+    }
+    setCheckingOut(null)
+  }
 
   async function handleSubmit() {
     if (!formData.name.trim() || !formData.email.trim() || !formData.business_name.trim()) {
@@ -217,10 +243,12 @@ export default function HomePage() {
         .price-btn:hover { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
         .price-btn.pop { background: var(--rose); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(176,92,82,0.35); }
         .price-btn.pop:hover { background: var(--rose-dark); }
-        .price-btn.buy { background: var(--rose); color: #fff; border-color: transparent; box-shadow: 0 4px 14px rgba(176,92,82,0.35); margin-top: 8px; }
-        .price-btn.buy:hover { background: var(--rose-dark); }
-        .price-btn.buy-dark { background: rgba(255,255,255,0.12); color: #f5ede8; border-color: rgba(255,255,255,0.2); margin-top: 8px; }
-        .price-btn.buy-dark:hover { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+        .price-btn.buy { width: 100%; padding: 11px; border-radius: 8px; border: none; background: var(--rose); color: #fff; font-size: 0.84rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; text-align: center; transition: all 0.2s; margin-top: 8px; box-shadow: 0 4px 14px rgba(176,92,82,0.35); display: block; }
+        .price-btn.buy:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
+        .price-btn.buy:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .price-btn.buy-dark { width: 100%; padding: 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: #f5ede8; font-size: 0.84rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; text-align: center; transition: all 0.2s; margin-top: 8px; display: block; }
+        .price-btn.buy-dark:hover:not(:disabled) { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+        .price-btn.buy-dark:disabled { opacity: 0.7; cursor: not-allowed; }
 
         .faq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
@@ -255,63 +283,27 @@ export default function HomePage() {
         .hero-visual { animation: fadeUp 0.8s 0.3s ease both; }
 
         /* ── MODAL ── */
-        .modal-overlay {
-          position: fixed; inset: 0; z-index: 1000;
-          background: rgba(26,18,16,0.6); backdrop-filter: blur(6px);
-          display: flex; align-items: center; justify-content: center;
-          padding: 24px;
-          animation: fadeIn 0.2s ease;
-        }
+        .modal-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(26,18,16,0.6); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 24px; animation: fadeIn 0.2s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .modal-box {
-          background: var(--surface); border-radius: 16px;
-          border: 1px solid var(--border);
-          width: 100%; max-width: 480px;
-          box-shadow: 0 24px 80px rgba(26,18,16,0.25);
-          overflow: hidden;
-          animation: slideUp 0.25s ease;
-          max-height: 90vh; overflow-y: auto;
-        }
+        .modal-box { background: var(--surface); border-radius: 16px; border: 1px solid var(--border); width: 100%; max-width: 480px; box-shadow: 0 24px 80px rgba(26,18,16,0.25); overflow: hidden; animation: slideUp 0.25s ease; max-height: 90vh; overflow-y: auto; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .modal-header {
-          background: linear-gradient(135deg, #2a1f1d 0%, #3d2520 100%);
-          padding: 24px 24px 20px; position: relative;
-        }
-        .modal-close {
-          position: absolute; top: 14px; right: 14px;
-          background: rgba(255,255,255,0.1); border: none; border-radius: 6px;
-          width: 28px; height: 28px; cursor: pointer; color: rgba(245,237,232,0.6);
-          font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
-          transition: all 0.15s;
-        }
+        .modal-header { background: linear-gradient(135deg, #2a1f1d 0%, #3d2520 100%); padding: 24px 24px 20px; position: relative; }
+        .modal-close { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; color: rgba(245,237,232,0.6); font-size: 0.9rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
         .modal-close:hover { background: rgba(255,255,255,0.18); color: #f5ede8; }
         .modal-title { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: #f5ede8; margin-bottom: 4px; }
         .modal-sub { font-size: 0.78rem; color: rgba(245,237,232,0.5); line-height: 1.5; }
         .modal-body { padding: 24px; }
         .modal-field { margin-bottom: 14px; }
         .modal-label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--text); margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; }
-        .modal-input, .modal-select, .modal-textarea {
-          width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
-          border-radius: 8px; font-size: 0.85rem; color: var(--text);
-          font-family: 'DM Sans', sans-serif; background: var(--bg);
-          transition: all 0.2s; outline: none;
-        }
-        .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
-          border-color: var(--rose); box-shadow: 0 0 0 3px rgba(176,92,82,0.07); background: #fff;
-        }
+        .modal-input, .modal-select, .modal-textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; color: var(--text); font-family: 'DM Sans', sans-serif; background: var(--bg); transition: all 0.2s; outline: none; }
+        .modal-input:focus, .modal-select:focus, .modal-textarea:focus { border-color: var(--rose); box-shadow: 0 0 0 3px rgba(176,92,82,0.07); background: #fff; }
         .modal-input::placeholder, .modal-textarea::placeholder { color: #c9aba6; }
         .modal-textarea { resize: vertical; min-height: 88px; line-height: 1.5; }
         .modal-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .modal-error { background: #fef5f4; border: 1px solid #f0c4be; border-radius: 8px; padding: 9px 13px; font-size: 0.78rem; color: #8c3d34; margin-bottom: 14px; }
-        .modal-submit {
-          width: 100%; padding: 12px; border-radius: 9px; border: none;
-          background: var(--rose); color: #fff; font-size: 0.9rem; font-weight: 600;
-          cursor: pointer; font-family: 'DM Sans', sans-serif;
-          transition: all 0.2s; box-shadow: 0 4px 14px rgba(176,92,82,0.3);
-        }
+        .modal-submit { width: 100%; padding: 12px; border-radius: 9px; border: none; background: var(--rose); color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; box-shadow: 0 4px 14px rgba(176,92,82,0.3); }
         .modal-submit:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
         .modal-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
         .modal-success { padding: 32px 24px; text-align: center; }
         .modal-success-icon { width: 56px; height: 56px; border-radius: 50%; background: #edf4ef; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin: 0 auto 16px; }
         .modal-success-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--text); margin-bottom: 8px; }
@@ -381,18 +373,13 @@ export default function HomePage() {
               <div className="modal-title">Get Business Access</div>
               <div className="modal-sub">Tell us about your business — we'll set up your free trial personally.</div>
             </div>
-
             {submitted ? (
               <div className="modal-success">
                 <div className="modal-success-icon">✓</div>
                 <div className="modal-success-title">We'll be in touch soon!</div>
-                <div className="modal-success-sub">
-                  Thanks for reaching out. Our team will contact you at <strong>{formData.email}</strong> within 24 hours to set up your Business trial.
-                </div>
+                <div className="modal-success-sub">Thanks for reaching out. Our team will contact you at <strong>{formData.email}</strong> within 24 hours to set up your Business trial.</div>
                 <div className="modal-success-divider" />
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)', marginBottom: 16 }}>
-                  In the meantime, create a free account so we can upgrade you right away when we get in touch.
-                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)', marginBottom: 16 }}>In the meantime, create a free account so we can upgrade you right away when we get in touch.</div>
                 <div className="modal-cta-row">
                   <Link href="/auth/register" className="modal-cta-primary">Create Free Account →</Link>
                   <button className="modal-cta-secondary" onClick={closeModal}>Close</button>
@@ -433,9 +420,7 @@ export default function HomePage() {
                 <button className="modal-submit" disabled={submitting} onClick={handleSubmit}>
                   {submitting ? 'Sending...' : 'Send Enquiry →'}
                 </button>
-                <div style={{ textAlign: 'center', marginTop: 12, fontSize: '0.72rem', color: 'var(--text-soft)' }}>
-                  We typically respond within 24 hours · No commitment required
-                </div>
+                <div style={{ textAlign: 'center', marginTop: 12, fontSize: '0.72rem', color: 'var(--text-soft)' }}>We typically respond within 24 hours · No commitment required</div>
               </div>
             )}
           </div>
@@ -596,9 +581,7 @@ export default function HomePage() {
         <div className="section-inner" style={{ position: 'relative', zIndex: 1 }}>
           <div className="section-eyebrow" style={{ textAlign: 'center', color: 'rgba(196,137,106,0.7)' }}>Who it's for</div>
           <h2 className="section-title" style={{ textAlign: 'center', color: '#f5ede8', marginBottom: 10 }}>Built for every customer-facing business</h2>
-          <p style={{ textAlign: 'center', fontSize: '0.95rem', color: 'rgba(245,237,232,0.5)', lineHeight: 1.7, maxWidth: 520, margin: '0 auto 44px' }}>
-            Whether you run one location or fifty, QRFeedback.ai fits your workflow in under 2 minutes.
-          </p>
+          <p style={{ textAlign: 'center', fontSize: '0.95rem', color: 'rgba(245,237,232,0.5)', lineHeight: 1.7, maxWidth: 520, margin: '0 auto 44px' }}>Whether you run one location or fifty, QRFeedback.ai fits your workflow in under 2 minutes.</p>
           <div className="biz-grid">
             {[
               { icon: '🍽', title: 'Restaurants & Cafés', iconBg: 'rgba(196,137,106,0.15)', desc: 'Place QR codes on tables, receipts, or menus. Catch complaints before they hit Google.', tag: 'Most popular' },
@@ -657,7 +640,13 @@ export default function HomePage() {
                 ))}
               </ul>
               <Link href="/auth/register" className="price-btn">Start Pro free trial</Link>
-              <button className="price-btn buy" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Buy Now — $19/mo</button>
+              <button
+                className="price-btn buy"
+                onClick={() => handleCheckout('pro')}
+                disabled={checkingOut === 'pro'}
+              >
+                {checkingOut === 'pro' ? 'Redirecting...' : 'Buy Now — $19/mo'}
+              </button>
             </div>
 
             {/* BUSINESS */}
@@ -673,7 +662,13 @@ export default function HomePage() {
                 ))}
               </ul>
               <button className="price-btn pop" onClick={() => setShowModal(true)}>Contact for Business trial</button>
-              <button className="price-btn buy-dark" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Buy Now — $49/mo</button>
+              <button
+                className="price-btn buy-dark"
+                onClick={() => handleCheckout('business')}
+                disabled={checkingOut === 'business'}
+              >
+                {checkingOut === 'business' ? 'Redirecting...' : 'Buy Now — $49/mo'}
+              </button>
             </div>
 
           </div>
@@ -691,7 +686,7 @@ export default function HomePage() {
               { q: 'How does Google Review routing work?', a: 'When a customer gives a 4 or 5 star rating, they are shown a thank-you screen with a button that opens your Google Review page directly.' },
               { q: 'Can I use this for multiple locations?', a: 'Yes. You can create separate forms for each location or branch, each with their own QR code and Google Review URL.' },
               { q: 'When does AI processing happen?', a: 'Within 15 seconds of a negative response being submitted. You receive an email with AI classification, sentiment score, summary, and suggested response.' },
-              { q: 'Can I cancel anytime?', a: 'Yes, anytime. If you cancel, your account downgrades to the free plan and you keep all your data. No lock-in, no cancellation fees.' },
+              { q: 'Can I cancel anytime?', a: 'Yes, anytime. If you cancel, you keep access until the end of your billing period, then your account downgrades to the free plan. No cancellation fees.' },
             ].map(f => (
               <div key={f.q} className="faq-item">
                 <div className="faq-q">{f.q}</div>
