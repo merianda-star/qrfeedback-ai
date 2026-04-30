@@ -154,6 +154,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/auth/login')
+    router.refresh()
   }
 
   const initials = profile?.full_name
@@ -278,7 +279,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'DM Sans', sans-serif; background: #fdf6f4; }
 
