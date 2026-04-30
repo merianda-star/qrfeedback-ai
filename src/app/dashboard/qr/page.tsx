@@ -90,11 +90,6 @@ async function drawQRModules(
   }
 }
 
-// ── CENTER OVERLAY ──
-// Business + logo uploaded → logo image in center
-// Business + no logo      → nothing (clean QR)
-// Pro                     → nothing (clean QR)
-// Free                    → QRFeedback.ai text badge
 async function drawCenterOverlay(
   ctx: CanvasRenderingContext2D,
   plan: string,
@@ -104,13 +99,10 @@ async function drawCenterOverlay(
   centerY: number,
   qrSize: number
 ) {
-  // Pro: always clean, no overlay
   if (plan === 'pro') return
 
-  // Business with logo uploaded
   if (plan === 'business' && logoUrl) {
     const badgeR = qrSize * 0.13
-    // White circle background
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.18)'
     ctx.shadowBlur = 6
@@ -130,16 +122,12 @@ async function drawCenterOverlay(
       const d = badgeR * 2
       ctx.drawImage(img, centerX - badgeR, centerY - badgeR, d, d)
       ctx.restore()
-    } catch {
-      // image load failed — fall through to nothing
-    }
+    } catch {}
     return
   }
 
-  // Business with no logo → clean QR
   if (plan === 'business' && !logoUrl) return
 
-  // Free → QRFeedback.ai text badge
   if (plan === 'free') {
     const badgeR = qrSize * 0.13
     ctx.save()
@@ -176,7 +164,6 @@ function drawTextBadge(
   ctx.textBaseline = 'alphabetic'
 }
 
-// Preview QR (shown on dashboard cards)
 async function generateQRPreview(
   url: string, config: QRConfig, plan: string, businessName: string, logoUrl: string | null
 ): Promise<HTMLCanvasElement> {
@@ -191,7 +178,6 @@ async function generateQRPreview(
   return canvas
 }
 
-// Full printable card
 async function generatePrintCard(
   url: string, config: QRConfig, plan: string, businessName: string,
   formTitle: string, locationName: string | null, logoUrl: string | null
@@ -376,7 +362,6 @@ export default function QRCodesPage() {
     const userPlan = profile?.plan || 'free'
     setPlan(userPlan)
     setBusinessName(profile?.business_name || 'My Business')
-    // Only use logo if Business plan
     setLogoUrl(userPlan === 'business' ? (profile?.logo_url || null) : null)
 
     const { data: formsData } = await supabase
@@ -446,31 +431,137 @@ export default function QRCodesPage() {
         url, config, plan, businessName, form.title, form.location_name, logoUrl
       )
       const imgData = cardCanvas.toDataURL('image/png')
-      const pw = window.open('', '_blank', 'width=640,height=760')
+      const pw = window.open('', '_blank', 'width=520,height=720')
       if (!pw) { setDownloadingPDF(null); return }
       pw.document.write(`<!DOCTYPE html>
-<html><head>
-<title>QR Card — ${form.title}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#f0ebe7;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;padding:24px}
-.card{width:340px;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(42,31,29,0.18)}
-img{width:100%;display:block}
-.actions{margin-top:20px;display:flex;gap:10px}
-button{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:sans-serif}
-.btn-print{background:#b05c52;color:#fff}
-.btn-close{background:#fff;color:#2a1f1d;border:1.5px solid #e8d5cf}
-@media print{body{background:white;padding:0}button{display:none!important}.card{box-shadow:none;border-radius:0;width:100%}@page{size:A5 portrait;margin:0.5cm}}
-</style></head>
+<html>
+<head>
+  <title>QR Card — ${form.title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #f0ebe7;
+      font-family: 'Georgia', serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .page-title {
+      font-size: 11px;
+      color: #7a5a56;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      font-family: Arial, sans-serif;
+    }
+
+    .card-wrap {
+      width: 280px;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow:
+        0 2px 4px rgba(42,31,29,0.06),
+        0 8px 24px rgba(42,31,29,0.14),
+        0 24px 48px rgba(42,31,29,0.10);
+    }
+
+    .card-wrap img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .card-meta {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #b09490;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    .actions {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 9px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      transition: opacity 0.15s;
+    }
+
+    button:hover { opacity: 0.88; }
+
+    .btn-print {
+      background: #b05c52;
+      color: #fff;
+    }
+
+    .btn-close {
+      background: #fff;
+      color: #2a1f1d;
+      border: 1.5px solid #e8d5cf;
+    }
+
+    /* ── Print styles ── */
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+        min-height: unset;
+        justify-content: flex-start;
+        padding-top: 20mm;
+      }
+
+      .page-title { display: none; }
+      .card-meta  { display: none; }
+      .actions    { display: none !important; }
+
+      .card-wrap {
+        width: 72mm;
+        border-radius: 6px;
+        box-shadow: none;
+        border: 0.5px solid #e8d5cf;
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: 15mm 20mm;
+      }
+    }
+  </style>
+</head>
 <body>
-<div class="card"><img src="${imgData}"/></div>
-<div class="actions">
-<button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
-<button class="btn-close" onclick="window.close()">Close</button>
-</div>
-</body></html>`)
+  <div class="page-title">${form.title}${form.location_name ? ' · ' + form.location_name : ''}</div>
+
+  <div class="card-wrap">
+    <img src="${imgData}" alt="QR Card" />
+  </div>
+
+  <div class="card-meta">Scan to leave feedback · qrfeedback.ai</div>
+
+  <div class="actions">
+    <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button class="btn-close" onclick="window.close()">Close</button>
+  </div>
+</body>
+</html>`)
       pw.document.close()
-    } catch (err) { console.error('Print card error:', err) }
+    } catch (err) {
+      console.error('Print card error:', err)
+    }
     setDownloadingPDF(null)
   }
 
@@ -483,7 +574,6 @@ button{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weigh
   const canCustomize = plan === 'pro' || plan === 'business'
   const canBrandName = plan === 'business'
 
-  // Topbar logo status — only relevant for Business users
   const showLogoActive = plan === 'business' && !!logoUrl
   const showLogoUpload = plan === 'business' && !logoUrl
 
@@ -566,7 +656,6 @@ button{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weigh
             <p>Download and display your QR codes for customers to scan</p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Logo status — Business plan only */}
             {showLogoActive && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--green-soft)', border: '1px solid rgba(74,122,90,0.2)', borderRadius: 20, padding: '5px 12px', fontSize: '0.7rem', color: 'var(--green)', fontWeight: 600 }}>
                 <img src={logoUrl!} alt="" style={{ width: 16, height: 16, borderRadius: '50%', objectFit: 'cover' }} />
@@ -597,7 +686,6 @@ button{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weigh
               const config = configs[form.id] || DEFAULT_CONFIG
               const isExpanded = expandedForm === form.id
 
-              // Per-card info banner
               const logoInfoClass = plan === 'business' && logoUrl ? 'has-logo' : 'neutral'
               const logoInfoText =
                 plan === 'free'
