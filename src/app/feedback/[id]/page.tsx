@@ -124,6 +124,7 @@ export default function FeedbackPage() {
     setOwnerBrand(profile?.business_name || '')
     setOwnerBusinessType(profile?.business_type || 'other')
     setOwnerSmartRouting(profile?.smart_routing ?? true)
+    console.log('[debug] smart_routing from DB:', profile?.smart_routing, '→ ownerSmartRouting:', profile?.smart_routing ?? true)
 
     const { data: qs } = await supabase
       .from('questions').select('*').eq('user_id', data.user_id).order('position')
