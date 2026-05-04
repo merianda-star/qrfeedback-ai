@@ -64,6 +64,7 @@ export default function FeedbackPage() {
   const [ownerPlan, setOwnerPlan] = useState<string>('free')
   const [ownerBrand, setOwnerBrand] = useState<string>('')
   const [ownerBusinessType, setOwnerBusinessType] = useState<string>('other')
+  const [ownerSmartRouting, setOwnerSmartRouting] = useState<boolean>(true)
 
   const isNeg = rating > 0 && rating < 4
   const negQuestion = questions.find(q => q.question_type === 'choice') || null
@@ -115,12 +116,14 @@ export default function FeedbackPage() {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('plan, business_name, business_type')
+      .select('plan, business_name, business_type, smart_routing')
       .eq('id', data.user_id)
       .single()
+
     setOwnerPlan(profile?.plan || 'free')
     setOwnerBrand(profile?.business_name || '')
     setOwnerBusinessType(profile?.business_type || 'other')
+    setOwnerSmartRouting(profile?.smart_routing ?? true)
 
     const { data: qs } = await supabase
       .from('questions').select('*').eq('user_id', data.user_id).order('position')
@@ -140,8 +143,14 @@ export default function FeedbackPage() {
     })
     setSubmitting(false)
     if (error) { console.error('Insert error:', error); return }
-    if (formData.google_review_url) { setScreen('consent') }
-    else { setScreen('thankyou-positive'); startCountdown() }
+
+    // Only show Google consent if smart routing is ON and a Google URL exists
+    if (formData.google_review_url && ownerSmartRouting) {
+      setScreen('consent')
+    } else {
+      setScreen('thankyou-positive')
+      startCountdown()
+    }
   }
 
   async function handleEmailSubmit() {
