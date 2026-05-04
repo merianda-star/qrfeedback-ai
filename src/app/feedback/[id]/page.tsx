@@ -114,17 +114,15 @@ export default function FeedbackPage() {
       return
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan, business_name, business_type, smart_routing')
-      .eq('id', data.user_id)
-      .single()
+    // Use server-side API route to bypass RLS and read owner profile settings
+    const res = await fetch(`/api/form-settings?form_id=${formId}`)
+    const profile = await res.json()
 
-    setOwnerPlan(profile?.plan || 'free')
-    setOwnerBrand(profile?.business_name || '')
-    setOwnerBusinessType(profile?.business_type || 'other')
-    setOwnerSmartRouting(profile?.smart_routing ?? true)
-    console.log('[debug] smart_routing from DB:', profile?.smart_routing, '→ ownerSmartRouting:', profile?.smart_routing ?? true)
+    setOwnerPlan(profile.plan || 'free')
+    setOwnerBrand(profile.business_name || '')
+    setOwnerBusinessType(profile.business_type || 'other')
+    setOwnerSmartRouting(profile.smart_routing ?? true)
+    console.log('[debug] smart_routing:', profile.smart_routing)
 
     const { data: qs } = await supabase
       .from('questions').select('*').eq('user_id', data.user_id).order('position')
@@ -464,7 +462,6 @@ export default function FeedbackPage() {
                   )
                 })}
 
-                {/* Dynamic negative issue question — options based on business type */}
                 {isNeg && negQuestion && (
                   <div className={`q-card ${Array.isArray(answers[questions.length + 1]) && (answers[questions.length + 1] as string[]).length > 0 ? 'answered' : ''}`}>
                     <div className="q-meta">
