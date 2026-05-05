@@ -227,10 +227,6 @@ export default function LoginPage() {
         .otp-back-btn { background: none; border: none; color: #b09490; font-size: 0.74rem; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 10px; text-decoration: underline; display: block; width: 100%; text-align: center; padding: 6px 0; }
         .otp-back-btn:hover { color: #7a5a56; }
 
-        .admin-hint { position: absolute; bottom: 14px; right: 16px; opacity: 0; transition: opacity 0.3s; z-index: 2; }
-        .auth-card:hover .admin-hint { opacity: 1; }
-        .admin-hint-icon { display: block; width: 18px; height: 18px; color: #ddd0cc; text-decoration: none; font-size: 0.75rem; line-height: 18px; text-align: center; transition: color 0.2s; }
-        .admin-hint-icon:hover { color: #b09490; }
 
         /* ── Mobile ── */
         @media (max-width: 480px) {
@@ -364,10 +360,6 @@ export default function LoginPage() {
               </div>
             </>
           )}
-
-          <div className="admin-hint">
-            <Link href="/auth/admin-login" className="admin-hint-icon" title="">⚙</Link>
-          </div>
         </div>
       </div>
     </>
