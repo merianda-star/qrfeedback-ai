@@ -122,7 +122,6 @@ export default function FeedbackPage() {
     setOwnerBrand(profile.business_name || '')
     setOwnerBusinessType(profile.business_type || 'other')
     setOwnerSmartRouting(profile.smart_routing ?? true)
-    console.log('[debug] smart_routing:', profile.smart_routing)
 
     const { data: qs } = await supabase
       .from('questions').select('*').eq('user_id', data.user_id).order('position')
@@ -142,6 +141,13 @@ export default function FeedbackPage() {
     })
     setSubmitting(false)
     if (error) { console.error('Insert error:', error); return }
+
+    // Fire positive alert email (non-blocking)
+    fetch('/api/alerts/positive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ form_id: formId, rating }),
+    }).catch(() => {})
 
     // Only show Google consent if smart routing is ON and a Google URL exists
     if (formData.google_review_url && ownerSmartRouting) {

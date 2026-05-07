@@ -16,14 +16,17 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await adminSupabase
     .from('profiles')
-    .select('plan, business_name, business_type, smart_routing')
+    .select('plan, business_name, business_type, smart_routing, ai_email_alerts, notify_on_positive, alert_email, email')
     .eq('id', form.user_id)
     .single()
 
   return NextResponse.json({
-    plan: profile?.plan || 'free',
-    business_name: profile?.business_name || '',
-    business_type: profile?.business_type || 'other',
-    smart_routing: profile?.smart_routing ?? true,
+    plan:               profile?.plan              || 'free',
+    business_name:      profile?.business_name     || '',
+    business_type:      profile?.business_type     || 'other',
+    smart_routing:      profile?.smart_routing     ?? true,
+    ai_email_alerts:    profile?.ai_email_alerts   ?? true,
+    notify_on_positive: profile?.notify_on_positive ?? false,
+    alert_email:        profile?.alert_email       || profile?.email || '',
   })
 }
