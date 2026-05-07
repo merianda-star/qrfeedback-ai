@@ -431,7 +431,7 @@ export default function QRCodesPage() {
         url, config, plan, businessName, form.title, form.location_name, logoUrl
       )
       const imgData = cardCanvas.toDataURL('image/png')
-      const pw = window.open('', '_blank', 'width=520,height=720')
+      const pw = window.open('', '_blank', 'width=560,height=760')
       if (!pw) { setDownloadingPDF(null); return }
       pw.document.write(`<!DOCTYPE html>
 <html>
@@ -442,27 +442,19 @@ export default function QRCodesPage() {
 
     body {
       background: #f0ebe7;
-      font-family: 'Georgia', serif;
+      font-family: Georgia, serif;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 32px 16px;
-    }
-
-    .page-title {
-      font-size: 11px;
-      color: #7a5a56;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-bottom: 16px;
-      font-family: Arial, sans-serif;
+      padding: 24px 16px;
+      gap: 16px;
     }
 
     .card-wrap {
-      width: 280px;
-      border-radius: 14px;
+      width: 340px;
+      border-radius: 16px;
       overflow: hidden;
       box-shadow:
         0 2px 4px rgba(42,31,29,0.06),
@@ -477,7 +469,6 @@ export default function QRCodesPage() {
     }
 
     .card-meta {
-      margin-top: 16px;
       font-size: 11px;
       color: #b09490;
       font-family: Arial, sans-serif;
@@ -486,13 +477,12 @@ export default function QRCodesPage() {
     }
 
     .actions {
-      margin-top: 20px;
       display: flex;
       gap: 10px;
     }
 
     button {
-      padding: 9px 22px;
+      padding: 10px 24px;
       border: none;
       border-radius: 8px;
       font-size: 13px;
@@ -503,55 +493,50 @@ export default function QRCodesPage() {
     }
 
     button:hover { opacity: 0.88; }
-
-    .btn-print {
-      background: #b05c52;
-      color: #fff;
-    }
-
-    .btn-close {
-      background: #fff;
-      color: #2a1f1d;
-      border: 1.5px solid #e8d5cf;
-    }
+    .btn-print { background: #b05c52; color: #fff; }
+    .btn-close  { background: #fff; color: #2a1f1d; border: 1.5px solid #e8d5cf; }
 
     /* ── Print styles ── */
     @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
       body {
         background: #fff;
         padding: 0;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100vw;
+        height: 100vh;
         min-height: unset;
-        justify-content: flex-start;
-        padding-top: 20mm;
       }
 
-      .page-title { display: none; }
-      .card-meta  { display: none; }
-      .actions    { display: none !important; }
+      .card-meta { display: none; }
+      .actions   { display: none !important; }
 
       .card-wrap {
-        width: 72mm;
-        border-radius: 6px;
+        width: 176mm;
+        border-radius: 8px;
         box-shadow: none;
         border: 0.5px solid #e8d5cf;
       }
 
       @page {
         size: A4 portrait;
-        margin: 15mm 20mm;
+        margin: 10mm;
       }
     }
   </style>
 </head>
 <body>
-  <div class="page-title">${form.title}${form.location_name ? ' · ' + form.location_name : ''}</div>
-
   <div class="card-wrap">
     <img src="${imgData}" alt="QR Card" />
   </div>
-
-  <div class="card-meta">Scan to leave feedback · qrfeedback.ai</div>
-
+  <div class="card-meta">${form.title}${form.location_name ? ' · ' + form.location_name : ''} · qrfeedback.ai</div>
   <div class="actions">
     <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
     <button class="btn-close" onclick="window.close()">Close</button>
@@ -606,8 +591,7 @@ export default function QRCodesPage() {
         .qr-stat-val{font-size:1rem;font-weight:700;color:var(--text);font-family:'DM Serif Display',serif}
         .qr-stat-val.terra{color:var(--terra)}
         .qr-stat-lbl{font-size:0.6rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.5px;font-weight:600}
-        .qr-actions{display:flex;gap:7px;width:100%;flex-wrap:wrap}
-        .qr-btn{flex:1;min-width:70px;padding:8px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-mid);font-family:'DM Sans',sans-serif;transition:all 0.15s;text-align:center;white-space:nowrap}
+        .qr-btn{padding:8px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-mid);font-family:'DM Sans',sans-serif;transition:all 0.15s;text-align:center;white-space:nowrap}
         .qr-btn:hover:not(:disabled){border-color:var(--border-md);color:var(--text)}
         .qr-btn:disabled{opacity:0.6;cursor:not-allowed}
         .qr-btn.primary{background:var(--rose);border-color:var(--rose);color:#fff}
@@ -716,15 +700,35 @@ export default function QRCodesPage() {
                         <div className="qr-stat-lbl">Avg Rating</div>
                       </div>
                     </div>
-                    <div className="qr-actions">
-                      <button className={`qr-btn ${copied === form.id ? 'copied' : ''}`} onClick={() => copyUrl(form.id)}>
+
+                    {/* ── Action buttons — Copy URL full width, PNG + Print side by side ── */}
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button
+                        className={`qr-btn ${copied === form.id ? 'copied' : ''}`}
+                        style={{ width: '100%', padding: '9px 8px' }}
+                        onClick={() => copyUrl(form.id)}
+                      >
                         {copied === form.id ? '✓ Copied' : '🔗 Copy URL'}
                       </button>
-                      <button className="qr-btn primary" onClick={() => downloadQR(form.id, form.title)}>↓ PNG</button>
-                      <button className="qr-btn dark" disabled={downloadingPDF === form.id} onClick={() => printCard(form)}>
-                        {downloadingPDF === form.id ? '...' : '🖨 Print'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          className="qr-btn primary"
+                          style={{ flex: 1 }}
+                          onClick={() => downloadQR(form.id, form.title)}
+                        >
+                          ↓ PNG
+                        </button>
+                        <button
+                          className="qr-btn dark"
+                          style={{ flex: 1 }}
+                          disabled={downloadingPDF === form.id}
+                          onClick={() => printCard(form)}
+                        >
+                          {downloadingPDF === form.id ? '...' : '🖨 Print'}
+                        </button>
+                      </div>
                     </div>
+
                     <div className={`logo-info ${logoInfoClass}`}>
                       {logoInfoText}
                     </div>
