@@ -196,20 +196,30 @@ async function generatePrintCard(
 
   // Header text — fillText only, no paths
   ctx.fillStyle = '#fdf8f3'
-  ctx.font = `${5.5 * sc}px Georgia, serif`
+  ctx.font = `${7 * sc}px Georgia, serif`
   ctx.letterSpacing = `${2 * sc}px`
   ctx.textAlign = 'center'
   ctx.fillText('SCAN TO LEAVE YOUR FEEDBACK', W / 2, 28 * sc)
   ctx.letterSpacing = '0px'
 
-  ctx.fillStyle = 'rgba(196,137,106,0.8)'
-  ctx.font = `${8 * sc}px Georgia, serif`
-  ctx.textAlign = 'center'
-  ctx.fillText('\u2756', W / 2 - 24 * sc, 50 * sc)
-  ctx.fillText('\u2756', W / 2 + 24 * sc, 50 * sc)
+  // Draw ornament diamonds manually — no Unicode path artifacts
+  ctx.save()
+  ctx.fillStyle = 'rgba(196,137,106,0.75)'
+  const dOff = 24 * sc
+  const dSize = 4 * sc
+  for (const dx of [W/2 - dOff, W/2 + dOff]) {
+    ctx.save()
+    ctx.translate(dx, 47 * sc)
+    ctx.rotate(Math.PI / 4)
+    ctx.fillRect(-dSize/2, -dSize/2, dSize, dSize)
+    ctx.restore()
+  }
+  ctx.beginPath()
+  ctx.restore()
 
   ctx.fillStyle = '#c4896a'
   ctx.font = `italic ${8 * sc}px Georgia, serif`
+  ctx.textAlign = 'center'
   ctx.fillText('Your voice shapes our service', W / 2, 50 * sc)
 
   // QR area
@@ -262,10 +272,14 @@ async function generatePrintCard(
   ctx.beginPath()
   ctx.restore()
 
+  // Draw ornament dot manually — no Unicode path artifacts
+  ctx.save()
   ctx.fillStyle = '#b05c52'
-  ctx.font = `${8 * sc}px Georgia, serif`
-  ctx.textAlign = 'center'
-  ctx.fillText('\u2756', W / 2, infoY + 3 * sc)
+  ctx.beginPath()
+  ctx.arc(W / 2, infoY, 3 * sc, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.restore()
 
   ctx.fillStyle = '#2a1f1d'
   ctx.textAlign = 'center'
