@@ -22,19 +22,6 @@ const DOT_STYLES: { value: DotStyle; label: string }[] = [
   { value: 'dots', label: 'Dots' },
 ]
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-  ctx.lineTo(x + w, y + h - r)
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
-  ctx.lineTo(x + r, y + h)
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath(); ctx.fill()
-}
-
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -57,7 +44,6 @@ async function drawQRModules(
   const modules = qrData.modules
   const count = modules.size
   const moduleSize = size / count
-
   ctx.fillStyle = config.fgColor
   for (let row = 0; row < count; row++) {
     for (let col = 0; col < count; col++) {
@@ -70,6 +56,7 @@ async function drawQRModules(
         ctx.beginPath()
         ctx.arc(x + moduleSize / 2, y + moduleSize / 2, s / 2, 0, Math.PI * 2)
         ctx.fill()
+        ctx.beginPath()
       } else if (config.dotStyle === 'rounded') {
         const rr = s * 0.32
         ctx.beginPath()
@@ -83,11 +70,13 @@ async function drawQRModules(
         ctx.lineTo(x + gap, y + gap + rr)
         ctx.quadraticCurveTo(x + gap, y + gap, x + gap + rr, y + gap)
         ctx.closePath(); ctx.fill()
+        ctx.beginPath()
       } else {
         ctx.fillRect(x, y, moduleSize, moduleSize)
       }
     }
   }
+  ctx.beginPath()
 }
 
 async function drawCenterOverlay(
@@ -110,9 +99,8 @@ async function drawCenterOverlay(
     ctx.beginPath()
     ctx.arc(centerX, centerY, badgeR + 3, 0, Math.PI * 2)
     ctx.fill()
-    ctx.shadowBlur = 0
+    ctx.beginPath()
     ctx.restore()
-
     try {
       const img = await loadImage(logoUrl)
       ctx.save()
@@ -123,6 +111,7 @@ async function drawCenterOverlay(
       ctx.drawImage(img, centerX - badgeR, centerY - badgeR, d, d)
       ctx.restore()
     } catch {}
+    ctx.beginPath()
     return
   }
 
@@ -137,31 +126,22 @@ async function drawCenterOverlay(
     ctx.beginPath()
     ctx.arc(centerX, centerY, badgeR + 3, 0, Math.PI * 2)
     ctx.fill()
-    ctx.shadowBlur = 0
+    ctx.beginPath()
     ctx.restore()
-    drawTextBadge(ctx, 'QRFeedback.ai', centerX, centerY, badgeR, true)
-  }
-}
-
-function drawTextBadge(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  cx: number, cy: number,
-  radius: number,
-  isRose: boolean
-) {
-  const maxW = radius * 1.7
-  let fontSize = 9
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`
-  while (ctx.measureText(text).width > maxW && fontSize > 5) {
-    fontSize -= 0.5
+    const maxW = badgeR * 1.7
+    let fontSize = 9
     ctx.font = `bold ${fontSize}px Arial, sans-serif`
+    while (ctx.measureText('QRFeedback.ai').width > maxW && fontSize > 5) {
+      fontSize -= 0.5
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`
+    }
+    ctx.fillStyle = '#b05c52'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('QRFeedback.ai', centerX, centerY)
+    ctx.textBaseline = 'alphabetic'
+    ctx.beginPath()
   }
-  ctx.fillStyle = isRose ? '#b05c52' : '#2a1f1d'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(text, cx, cy)
-  ctx.textBaseline = 'alphabetic'
 }
 
 async function generateQRPreview(
@@ -185,20 +165,25 @@ async function generatePrintCard(
   const sc = 2.5
   const W = 340 * sc
   const H = 480 * sc
-
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')!
 
+  // Background
   ctx.fillStyle = '#fdf8f3'
   ctx.fillRect(0, 0, W, H)
 
+  // Subtle diagonal texture
+  ctx.save()
   ctx.strokeStyle = 'rgba(176,92,82,0.04)'
   ctx.lineWidth = 1
   for (let i = -H; i < W + H; i += 18 * sc) {
     ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke()
   }
+  ctx.beginPath()
+  ctx.restore()
 
+  // Dark header
   const headerH = 72 * sc
   const grad = ctx.createLinearGradient(0, 0, W, headerH)
   grad.addColorStop(0, '#2a1f1d')
@@ -209,6 +194,7 @@ async function generatePrintCard(
   ctx.fillStyle = '#b05c52'
   ctx.fillRect(0, headerH - 3 * sc, W, 3 * sc)
 
+  // Header text — fillText only, no paths
   ctx.fillStyle = '#fdf8f3'
   ctx.font = `${5.5 * sc}px Georgia, serif`
   ctx.letterSpacing = `${2 * sc}px`
@@ -218,27 +204,39 @@ async function generatePrintCard(
 
   ctx.fillStyle = 'rgba(196,137,106,0.8)'
   ctx.font = `${8 * sc}px Georgia, serif`
-  ctx.fillText('✦', W / 2 - 24 * sc, 50 * sc)
-  ctx.fillText('✦', W / 2 + 24 * sc, 50 * sc)
+  ctx.textAlign = 'center'
+  ctx.fillText('\u2756', W / 2 - 24 * sc, 50 * sc)
+  ctx.fillText('\u2756', W / 2 + 24 * sc, 50 * sc)
+
   ctx.fillStyle = '#c4896a'
   ctx.font = `italic ${8 * sc}px Georgia, serif`
   ctx.fillText('Your voice shapes our service', W / 2, 50 * sc)
 
+  // QR area
   const qrPad = 20 * sc
   const qrSize = W - qrPad * 2
   const qrY = headerH + 16 * sc
 
-  ctx.fillStyle = '#ffffff'
+  // White QR background with shadow — contained in save/restore
+  ctx.save()
   ctx.shadowColor = 'rgba(42,31,29,0.12)'
   ctx.shadowBlur = 12 * sc
   ctx.shadowOffsetY = 4 * sc
+  ctx.fillStyle = '#ffffff'
   ctx.fillRect(qrPad, qrY, qrSize, qrSize)
-  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+  ctx.restore()
 
+  // QR border — contained in save/restore, explicit beginPath
+  ctx.save()
   ctx.strokeStyle = '#e8d5cf'
   ctx.lineWidth = 1 * sc
-  ctx.strokeRect(qrPad, qrY, qrSize, qrSize)
+  ctx.beginPath()
+  ctx.rect(qrPad, qrY, qrSize, qrSize)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.restore()
 
+  // QR modules
   const qrInnerPad = 10 * sc
   const qrInnerSize = qrSize - qrInnerPad * 2
   ctx.fillStyle = config.bgColor
@@ -246,8 +244,13 @@ async function generatePrintCard(
   await drawQRModules(ctx, url, config, qrInnerSize, qrPad + qrInnerPad, qrY + qrInnerPad)
   await drawCenterOverlay(ctx, plan, businessName, logoUrl, W / 2, qrY + qrSize / 2, qrInnerSize)
 
+  // Critical: clear any lingering path from center overlay
+  ctx.beginPath()
+
+  // Info section
   const infoY = qrY + qrSize + 20 * sc
 
+  ctx.save()
   ctx.strokeStyle = '#e8d5cf'
   ctx.lineWidth = 1 * sc
   ctx.beginPath()
@@ -256,16 +259,17 @@ async function generatePrintCard(
   ctx.beginPath()
   ctx.moveTo(W / 2 + 14 * sc, infoY); ctx.lineTo(W - qrPad, infoY)
   ctx.stroke()
+  ctx.beginPath()
+  ctx.restore()
+
   ctx.fillStyle = '#b05c52'
   ctx.font = `${8 * sc}px Georgia, serif`
   ctx.textAlign = 'center'
-  ctx.fillText('✦', W / 2, infoY + 3 * sc)
+  ctx.fillText('\u2756', W / 2, infoY + 3 * sc)
 
   ctx.fillStyle = '#2a1f1d'
   ctx.textAlign = 'center'
-  const nameFontSize = 13 * sc
-  ctx.font = `bold ${nameFontSize}px Georgia, serif`
-
+  ctx.font = `bold ${13 * sc}px Georgia, serif`
   const maxW = W - qrPad * 2 - 8 * sc
   const nameWords = formTitle.split(' ')
   let nameLine = ''
@@ -284,6 +288,7 @@ async function generatePrintCard(
     const locY = nameY + 14 * sc
     ctx.fillStyle = '#7a5a56'
     ctx.font = `${8 * sc}px Georgia, serif`
+    ctx.textAlign = 'center'
     const locWords = locationName.split(' ')
     let locLine = ''; let locLineY = locY
     for (let i = 0; i < locWords.length; i++) {
@@ -296,6 +301,7 @@ async function generatePrintCard(
     ctx.fillText(locLine, W / 2, locLineY)
   }
 
+  // Footer
   const footerH = 36 * sc
   const footerY = H - footerH
 
@@ -312,12 +318,15 @@ async function generatePrintCard(
     ctx.font = `bold ${8 * sc}px Georgia, serif`
     ctx.fillText('QRFeedback.ai', W / 2, footerY + 26 * sc)
   } else {
+    ctx.save()
     ctx.strokeStyle = '#e8d5cf'
     ctx.lineWidth = 1 * sc
     ctx.beginPath()
     ctx.moveTo(qrPad, footerY + 8 * sc)
     ctx.lineTo(W - qrPad, footerY + 8 * sc)
     ctx.stroke()
+    ctx.beginPath()
+    ctx.restore()
     ctx.fillStyle = '#b09490'
     ctx.font = `${5.5 * sc}px Georgia, serif`
     ctx.textAlign = 'center'
@@ -343,7 +352,6 @@ export default function QRCodesPage() {
   const [plan, setPlan] = useState('free')
   const [businessName, setBusinessName] = useState('')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
-
   const [configs, setConfigs] = useState<Record<string, QRConfig>>({})
   const [expandedForm, setExpandedForm] = useState<string | null>(null)
   const canvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({})
@@ -356,28 +364,23 @@ export default function QRCodesPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
-
     const { data: profile } = await supabase
       .from('profiles').select('plan, business_name, logo_url').eq('id', user.id).single()
     const userPlan = profile?.plan || 'free'
     setPlan(userPlan)
     setBusinessName(profile?.business_name || 'My Business')
     setLogoUrl(userPlan === 'business' ? (profile?.logo_url || null) : null)
-
     const { data: formsData } = await supabase
       .from('forms').select('id, title, location_name').eq('user_id', user.id)
     if (!formsData || formsData.length === 0) { setLoading(false); return }
-
     const formIds = formsData.map((f: any) => f.id)
     const { data: responses } = await supabase
       .from('responses').select('form_id, rating').in('form_id', formIds)
-
     const countMap: Record<string, number[]> = {}
     responses?.forEach((r: any) => {
       if (!countMap[r.form_id]) countMap[r.form_id] = []
       countMap[r.form_id].push(r.rating)
     })
-
     const enriched = formsData.map((f: any) => ({
       ...f,
       response_count: countMap[f.id]?.length || 0,
@@ -385,7 +388,6 @@ export default function QRCodesPage() {
         ? parseFloat((countMap[f.id].reduce((s, r) => s + r, 0) / countMap[f.id].length).toFixed(1))
         : null,
     }))
-
     setForms(enriched)
     const initConfigs: Record<string, QRConfig> = {}
     formsData.forEach((f: any) => { initConfigs[f.id] = { ...DEFAULT_CONFIG } })
@@ -431,18 +433,16 @@ export default function QRCodesPage() {
         url, config, plan, businessName, form.title, form.location_name, logoUrl
       )
       const imgData = cardCanvas.toDataURL('image/png')
-      const pw = window.open('', '_blank', 'width=560,height=760')
+      const pw = window.open('', '_blank', 'width=520,height=720')
       if (!pw) { setDownloadingPDF(null); return }
       pw.document.write(`<!DOCTYPE html>
 <html>
 <head>
-  <title>QR Card — ${form.title}</title>
+  <title>QR Card</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       background: #f0ebe7;
-      font-family: Georgia, serif;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -450,103 +450,42 @@ export default function QRCodesPage() {
       min-height: 100vh;
       padding: 24px 16px;
       gap: 16px;
+      font-family: Georgia, serif;
     }
-
     .card-wrap {
-      width: 340px;
+      width: 300px;
       border-radius: 16px;
       overflow: hidden;
-      box-shadow:
-        0 2px 4px rgba(42,31,29,0.06),
-        0 8px 24px rgba(42,31,29,0.14),
-        0 24px 48px rgba(42,31,29,0.10);
+      box-shadow: 0 2px 4px rgba(42,31,29,0.06), 0 8px 24px rgba(42,31,29,0.14), 0 24px 48px rgba(42,31,29,0.10);
     }
-
-    .card-wrap img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    .card-meta {
-      font-size: 11px;
-      color: #b09490;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      letter-spacing: 0.5px;
-    }
-
-    .actions {
-      display: flex;
-      gap: 10px;
-    }
-
-    button {
-      padding: 10px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: Arial, sans-serif;
-      transition: opacity 0.15s;
-    }
-
+    .card-wrap img { width: 100%; height: auto; display: block; }
+    .card-meta { font-size: 11px; color: #b09490; font-family: Arial, sans-serif; text-align: center; letter-spacing: 0.5px; }
+    .actions { display: flex; gap: 10px; }
+    button { padding: 10px 24px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: Arial, sans-serif; transition: opacity 0.15s; }
     button:hover { opacity: 0.88; }
     .btn-print { background: #b05c52; color: #fff; }
-    .btn-close  { background: #fff; color: #2a1f1d; border: 1.5px solid #e8d5cf; }
-
-    /* ── Print styles ── */
+    .btn-close { background: #fff; color: #2a1f1d; border: 1.5px solid #e8d5cf; }
     @media print {
-      * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-
-      body {
-        background: #fff;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100vw;
-        height: 100vh;
-        min-height: unset;
-      }
-
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { background: #fff; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; width: 100vw; height: 100vh; min-height: unset; }
       .card-meta { display: none; }
-      .actions   { display: none !important; }
-
-      .card-wrap {
-        width: 176mm;
-        border-radius: 8px;
-        box-shadow: none;
-        border: 0.5px solid #e8d5cf;
-      }
-
-      @page {
-        size: A4 portrait;
-        margin: 10mm;
-      }
+      .actions { display: none !important; }
+      .card-wrap { width: 150mm; border-radius: 6px; box-shadow: none; border: 0.5px solid #e8d5cf; }
+      @page { size: A4 portrait; margin: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="card-wrap">
-    <img src="${imgData}" alt="QR Card" />
-  </div>
+  <div class="card-wrap"><img src="${imgData}" alt="QR Card" /></div>
   <div class="card-meta">${form.title}${form.location_name ? ' · ' + form.location_name : ''} · qrfeedback.ai</div>
   <div class="actions">
-    <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button class="btn-print" onclick="window.print()">Print / Save as PDF</button>
     <button class="btn-close" onclick="window.close()">Close</button>
   </div>
 </body>
 </html>`)
       pw.document.close()
-    } catch (err) {
-      console.error('Print card error:', err)
-    }
+    } catch (err) { console.error('Print card error:', err) }
     setDownloadingPDF(null)
   }
 
@@ -558,7 +497,6 @@ export default function QRCodesPage() {
 
   const canCustomize = plan === 'pro' || plan === 'business'
   const canBrandName = plan === 'business'
-
   const showLogoActive = plan === 'business' && !!logoUrl
   const showLogoUpload = plan === 'business' && !logoUrl
 
@@ -571,7 +509,7 @@ export default function QRCodesPage() {
   return (
     <>
       <style>{`
-        :root { --bg:#fdf6f4;--surface:#fff;--border:#e8d5cf;--border-md:#d9c2bb;--rose:#b05c52;--rose-dark:#8c3d34;--rose-soft:#f7ece9;--text:#2a1f1d;--text-mid:#7a5a56;--text-soft:#b09490;--terra:#c4896a;--green:#4a7a5a;--green-soft:#edf4ef; }
+        :root{--bg:#fdf6f4;--surface:#fff;--border:#e8d5cf;--border-md:#d9c2bb;--rose:#b05c52;--rose-dark:#8c3d34;--rose-soft:#f7ece9;--text:#2a1f1d;--text-mid:#7a5a56;--text-soft:#b09490;--terra:#c4896a;--green:#4a7a5a;--green-soft:#edf4ef;}
         .qr-page{max-width:900px}
         .qr-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
         .qr-topbar h2{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--text);margin-bottom:3px}
@@ -591,7 +529,7 @@ export default function QRCodesPage() {
         .qr-stat-val{font-size:1rem;font-weight:700;color:var(--text);font-family:'DM Serif Display',serif}
         .qr-stat-val.terra{color:var(--terra)}
         .qr-stat-lbl{font-size:0.6rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.5px;font-weight:600}
-        .qr-btn{padding:8px 8px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-mid);font-family:'DM Sans',sans-serif;transition:all 0.15s;text-align:center;white-space:nowrap}
+        .qr-btn{padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);font-size:0.72rem;font-weight:600;cursor:pointer;color:var(--text-mid);font-family:'DM Sans',sans-serif;transition:all 0.15s;text-align:center;white-space:nowrap}
         .qr-btn:hover:not(:disabled){border-color:var(--border-md);color:var(--text)}
         .qr-btn:disabled{opacity:0.6;cursor:not-allowed}
         .qr-btn.primary{background:var(--rose);border-color:var(--rose);color:#fff}
@@ -601,7 +539,6 @@ export default function QRCodesPage() {
         .qr-btn.copied{background:var(--green-soft);border-color:var(--green);color:var(--green)}
         .logo-info{width:100%;margin-top:8px;padding:8px 12px;border-radius:8px;font-size:0.68rem;text-align:center;line-height:1.5}
         .logo-info.has-logo{background:var(--green-soft);color:var(--green);border:1px solid rgba(74,122,90,0.2)}
-        .logo-info.no-logo{background:var(--rose-soft);color:var(--text-soft)}
         .logo-info.neutral{background:var(--bg);color:var(--text-soft);border:1px solid var(--border)}
         .qr-customize-toggle{width:100%;padding:10px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:transparent;border-left:none;border-right:none;border-bottom:none;font-family:'DM Sans',sans-serif}
         .qr-customize-toggle-left{display:flex;align-items:center;gap:8px}
@@ -669,16 +606,12 @@ export default function QRCodesPage() {
             {forms.map(form => {
               const config = configs[form.id] || DEFAULT_CONFIG
               const isExpanded = expandedForm === form.id
-
               const logoInfoClass = plan === 'business' && logoUrl ? 'has-logo' : 'neutral'
               const logoInfoText =
-                plan === 'free'
-                  ? 'QRFeedback.ai brandmark shown in QR center'
-                  : plan === 'pro'
-                  ? 'Clean QR code — no center overlay'
-                  : logoUrl
-                  ? '✓ Your brand logo is shown in the QR center'
-                  : 'No logo uploaded · Add one in Profile to show it in the QR center'
+                plan === 'free' ? 'QRFeedback.ai brandmark shown in QR center'
+                : plan === 'pro' ? 'Clean QR code — no center overlay'
+                : logoUrl ? '✓ Your brand logo is shown in the QR center'
+                : 'No logo uploaded · Add one in Profile to show it in the QR center'
 
               return (
                 <div key={form.id} className="qr-card">
@@ -701,7 +634,7 @@ export default function QRCodesPage() {
                       </div>
                     </div>
 
-                    {/* ── Action buttons — Copy URL full width, PNG + Print side by side ── */}
+                    {/* Copy URL full width, PNG + Print side by side */}
                     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <button
                         className={`qr-btn ${copied === form.id ? 'copied' : ''}`}
@@ -711,27 +644,16 @@ export default function QRCodesPage() {
                         {copied === form.id ? '✓ Copied' : '🔗 Copy URL'}
                       </button>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          className="qr-btn primary"
-                          style={{ flex: 1 }}
-                          onClick={() => downloadQR(form.id, form.title)}
-                        >
+                        <button className="qr-btn primary" style={{ flex: 1 }} onClick={() => downloadQR(form.id, form.title)}>
                           ↓ PNG
                         </button>
-                        <button
-                          className="qr-btn dark"
-                          style={{ flex: 1 }}
-                          disabled={downloadingPDF === form.id}
-                          onClick={() => printCard(form)}
-                        >
+                        <button className="qr-btn dark" style={{ flex: 1 }} disabled={downloadingPDF === form.id} onClick={() => printCard(form)}>
                           {downloadingPDF === form.id ? '...' : '🖨 Print'}
                         </button>
                       </div>
                     </div>
 
-                    <div className={`logo-info ${logoInfoClass}`}>
-                      {logoInfoText}
-                    </div>
+                    <div className={`logo-info ${logoInfoClass}`}>{logoInfoText}</div>
                   </div>
 
                   <button className="qr-customize-toggle" onClick={() => setExpandedForm(isExpanded ? null : form.id)}>
