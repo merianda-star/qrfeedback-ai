@@ -92,6 +92,37 @@ const DEFAULT_OPTIONS: Record<string, string[]> = {
   other: ['Quality of service', 'Staff friendliness', 'Value for money', 'Cleanliness', 'Overall experience'],
 }
 
+// ── Module-level component — defined outside QuestionsPage so React never
+// remounts it on parent state changes. Typing only updates local state,
+// zero parent re-renders until the user blurs the input.
+function OptionInput({
+  value,
+  index,
+  placeholder,
+  onCommit,
+}: {
+  value: string
+  index: number
+  placeholder: string
+  onCommit: (index: number, val: string) => void
+}) {
+  const [local, setLocal] = useState(value)
+
+  // Sync if parent resets options (e.g. switching question type)
+  useEffect(() => { setLocal(value) }, [value])
+
+  return (
+    <input
+      type="text"
+      className="option-input"
+      placeholder={placeholder}
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={() => onCommit(index, local)}
+    />
+  )
+}
+
 export default function QuestionsPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -285,14 +316,14 @@ export default function QuestionsPage() {
             <div className="options-list">
               {editOptions.map((opt, i) => (
                 <div key={i} className="option-row">
-                  <input
-                    type="text"
-                    className="option-input"
-                    placeholder={`Option ${i + 1}`}
+                  <OptionInput
+                    key={`${editingId}-opt-${i}`}
                     value={opt}
-                    onChange={e => {
+                    index={i}
+                    placeholder={`Option ${i + 1}`}
+                    onCommit={(idx, val) => {
                       const updated = [...editOptions]
-                      updated[i] = e.target.value
+                      updated[idx] = val
                       setEditOptions(updated)
                     }}
                   />
@@ -622,14 +653,14 @@ export default function QuestionsPage() {
                 <div className="options-list">
                   {newOptions.map((opt, i) => (
                     <div key={i} className="option-row">
-                      <input
-                        type="text"
-                        className="option-input"
-                        placeholder={`Option ${i + 1}`}
+                      <OptionInput
+                        key={`new-opt-${i}`}
                         value={opt}
-                        onChange={e => {
+                        index={i}
+                        placeholder={`Option ${i + 1}`}
+                        onCommit={(idx, val) => {
                           const updated = [...newOptions]
-                          updated[i] = e.target.value
+                          updated[idx] = val
                           setNewOptions(updated)
                         }}
                       />
