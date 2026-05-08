@@ -163,8 +163,8 @@ async function generatePrintCard(
   formTitle: string, locationName: string | null, logoUrl: string | null
 ): Promise<HTMLCanvasElement> {
   const sc = 3
-  const W  = 300 * sc   // 900px
-  const H  = 400 * sc   // 1200px  (3:4 ratio matching reference)
+  const W  = 300 * sc   // 900px wide
+  const H  = 530 * sc   // 1590px tall — fits header + QR + full info section
 
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
@@ -176,24 +176,24 @@ async function generatePrintCard(
   const ROSE = '#9e3a30'
   const GOLD = '#c4896a'
   const MID  = '#7a5a56'
-  const SOFT = '#e8d5cf'
+  const SOFT = '#e2cdc9'
   const WHITE= '#ffffff'
 
-  // ── Rounded-rect helper (fill only, no stroke ever) ───────────────────────
+  // ── Rounded-rect helper (fill only, no stroke) ────────────────────────────
   function fillRR(x: number, y: number, w: number, h: number,
                   r: number | number[], color: string) {
     ctx.fillStyle = color
     ctx.beginPath()
     const [tl,tr,br,bl] = Array.isArray(r) ? r as number[] : [r,r,r,r] as number[]
     ctx.moveTo(x+tl, y)
-    ctx.lineTo(x+w-tr, y);  ctx.quadraticCurveTo(x+w, y,   x+w, y+tr)
-    ctx.lineTo(x+w, y+h-br);ctx.quadraticCurveTo(x+w, y+h, x+w-br, y+h)
-    ctx.lineTo(x+bl, y+h);  ctx.quadraticCurveTo(x,   y+h, x, y+h-bl)
-    ctx.lineTo(x, y+tl);    ctx.quadraticCurveTo(x,   y,   x+tl, y)
+    ctx.lineTo(x+w-tr, y);   ctx.quadraticCurveTo(x+w, y,   x+w, y+tr)
+    ctx.lineTo(x+w, y+h-br); ctx.quadraticCurveTo(x+w, y+h, x+w-br, y+h)
+    ctx.lineTo(x+bl, y+h);   ctx.quadraticCurveTo(x,   y+h, x,   y+h-bl)
+    ctx.lineTo(x, y+tl);     ctx.quadraticCurveTo(x,   y,   x+tl, y)
     ctx.closePath(); ctx.fill(); ctx.beginPath()
   }
 
-  // ── Small filled circle helper ────────────────────────────────────────────
+  // ── Filled circle helper ──────────────────────────────────────────────────
   function fillCircle(cx: number, cy: number, r: number, color: string) {
     ctx.fillStyle = color
     ctx.beginPath()
@@ -201,145 +201,140 @@ async function generatePrintCard(
     ctx.fill(); ctx.beginPath()
   }
 
-  // ── 1. OUTER CARD ─────────────────────────────────────────────────────────
-  const bdr   = 2.5 * sc   // border thickness
-  const cardR = 12  * sc   // outer corner radius
-  fillRR(0, 0, W, H, cardR, ROSE)                            // border ring
-  fillRR(bdr, bdr, W-bdr*2, H-bdr*2, cardR-bdr, BG)         // cream interior
+  // ── 1. OUTER CARD BORDER ──────────────────────────────────────────────────
+  const bdr   = 2.5 * sc
+  const cardR = 12  * sc
+  fillRR(0, 0, W, H, cardR, ROSE)
+  fillRR(bdr, bdr, W - bdr*2, H - bdr*2, cardR - bdr, BG)
 
   // ── 2. HEADER ─────────────────────────────────────────────────────────────
-  const hdrH = 125 * sc
-  const hdrR = cardR - bdr
-  // Dark header with rounded top corners only
-  fillRR(bdr, bdr, W-bdr*2, hdrH, [hdrR, hdrR, 0, 0], DARK)
+  const hdrH = 132 * sc
+  fillRR(bdr, bdr, W - bdr*2, hdrH, [cardR-bdr, cardR-bdr, 0, 0], DARK)
 
-  // Big white heading — two lines
+  // "SCAN TO LEAVE" line 1
   ctx.fillStyle = WHITE
-  ctx.font = `900 ${17 * sc}px Arial Black, Arial, sans-serif`
+  ctx.font = `900 ${18 * sc}px Arial Black, Arial, sans-serif`
   ctx.textAlign = 'center'
   ctx.letterSpacing = `${1.5 * sc}px`
-  ctx.fillText('SCAN TO LEAVE', W / 2, 46 * sc)
-  ctx.fillText('YOUR FEEDBACK', W / 2, 68 * sc)
+  ctx.fillText('SCAN TO LEAVE', W / 2, 48 * sc)
+  // "YOUR FEEDBACK" line 2
+  ctx.fillText('YOUR FEEDBACK', W / 2, 72 * sc)
   ctx.letterSpacing = '0px'
 
   // Gold italic tagline
   ctx.fillStyle = GOLD
   ctx.font = `italic ${7 * sc}px Georgia, serif`
   ctx.textAlign = 'center'
-  ctx.fillText('Your voice shapes our service', W / 2, 85 * sc)
+  ctx.fillText('Your voice shapes our service', W / 2, 90 * sc)
 
-  // Thin divider: left line · dot · right line  (fillRect only)
-  const divPad = 60 * sc
-  const divY1  = 93 * sc
-  ctx.fillStyle = 'rgba(255,255,255,0.22)'
-  ctx.fillRect(divPad, divY1, W/2 - divPad - 8*sc, 1*sc)          // left
-  ctx.fillRect(W/2 + 8*sc, divY1, W/2 - divPad - 8*sc, 1*sc)      // right
-  fillCircle(W/2, divY1, 2.5*sc, GOLD)                              // centre dot
+  // Divider: left line · dot · right line
+  const dPad = 55 * sc
+  const dY   = 99 * sc
+  ctx.fillStyle = 'rgba(255,255,255,0.2)'
+  ctx.fillRect(dPad, dY, W/2 - dPad - 10*sc, 1*sc)
+  ctx.fillRect(W/2 + 10*sc, dY, W/2 - dPad - 10*sc, 1*sc)
+  fillCircle(W/2, dY, 2.5*sc, GOLD)
 
-  // QRFEEDBACK.AI credit
-  ctx.fillStyle = 'rgba(255,255,255,0.32)'
-  ctx.font = `${4*sc}px Arial, sans-serif`
-  ctx.letterSpacing = `${2*sc}px`
+  // QRFEEDBACK.AI
+  ctx.fillStyle = 'rgba(255,255,255,0.28)'
+  ctx.font = `${4 * sc}px Arial, sans-serif`
+  ctx.letterSpacing = `${2 * sc}px`
   ctx.textAlign = 'center'
-  ctx.fillText('QRFEEDBACK.AI', W / 2, 110 * sc)
+  ctx.fillText('QRFEEDBACK.AI', W / 2, 118 * sc)
   ctx.letterSpacing = '0px'
 
   // ── 3. QR CODE CARD ───────────────────────────────────────────────────────
-  const qPad  = 18 * sc   // outer padding from card edge
-  const qGap  = 14 * sc   // gap below header
-  const qX    = qPad
-  const qY    = bdr + hdrH + qGap
-  const qW    = W - qPad * 2
-  const qH    = qW        // square
-  const qBdr  = 2 * sc    // QR card border
-  const qR    = 9 * sc    // QR card corner radius
+  const qPad = 18 * sc
+  const qGap =  8 * sc
+  const qX   = qPad
+  const qY   = bdr + hdrH + qGap
+  const qW   = W - qPad * 2      // 792px
+  const qH   = qW                 // square
+  const qBdr = 2   * sc
+  const qR   = 9   * sc
 
-  // Rounded QR card with ROSE border
   fillRR(qX, qY, qW, qH, qR, ROSE)
-  fillRR(qX+qBdr, qY+qBdr, qW-qBdr*2, qH-qBdr*2, qR-qBdr, WHITE)
+  fillRR(qX + qBdr, qY + qBdr, qW - qBdr*2, qH - qBdr*2, qR - qBdr, WHITE)
 
-  // QR modules
-  const innerPad  = 11 * sc
-  const innerX    = qX + qBdr + innerPad
-  const innerY    = qY + qBdr + innerPad
-  const innerSize = qW - (qBdr + innerPad) * 2
+  const iPad     = 12 * sc
+  const iX       = qX + qBdr + iPad
+  const iY       = qY + qBdr + iPad
+  const iSize    = qW - (qBdr + iPad) * 2
 
   ctx.fillStyle = config.bgColor
-  ctx.fillRect(qX+qBdr, qY+qBdr, qW-qBdr*2, qH-qBdr*2)
-  await drawQRModules(ctx, url, config, innerSize, innerX, innerY)
+  ctx.fillRect(qX + qBdr, qY + qBdr, qW - qBdr*2, qH - qBdr*2)
+  await drawQRModules(ctx, url, config, iSize, iX, iY)
   await drawCenterOverlay(ctx, plan, businessName, logoUrl,
-    W / 2, qY + qH / 2, innerSize)
-  ctx.beginPath()   // always clear path after overlay
+    W / 2, qY + qH / 2, iSize)
+  ctx.beginPath()
 
   // ── 4. INFO SECTION ───────────────────────────────────────────────────────
-  const infoY   = qY + qH + 12 * sc
-  const maxTW   = qW - 8 * sc
-  let   curY    = infoY
+  const maxTW = qW - 16 * sc
+  let   curY  = qY + qH + 18 * sc
 
-  // Divider: lines + small filled diamond
+  // Divider lines + diamond dot
   ctx.fillStyle = SOFT
   ctx.fillRect(qPad, curY, qW * 0.38, 1.2 * sc)
   ctx.fillRect(qPad + qW * 0.62, curY, qW * 0.38, 1.2 * sc)
-  // Diamond = rotated square
   ctx.save()
-  ctx.translate(W/2, curY)
+  ctx.translate(W / 2, curY)
   ctx.rotate(Math.PI / 4)
   const ds = 4.5 * sc
   ctx.fillStyle = ROSE
   ctx.fillRect(-ds/2, -ds/2, ds, ds)
   ctx.restore()
 
-  curY += 18 * sc
+  curY += 20 * sc
 
-  // Business name
+  // Business name (bold Georgia)
   ctx.fillStyle = DARK
-  ctx.font = `700 ${11.5 * sc}px Georgia, serif`
+  ctx.font = `700 ${12 * sc}px Georgia, serif`
   ctx.textAlign = 'center'
   const nWords = formTitle.split(' ')
   let nLine = ''
+  const nLH = 16 * sc
   for (let i = 0; i < nWords.length; i++) {
     const t = nLine ? nLine + ' ' + nWords[i] : nWords[i]
     if (ctx.measureText(t).width > maxTW && nLine) {
-      ctx.fillText(nLine, W/2, curY); nLine = nWords[i]; curY += 15 * sc
+      ctx.fillText(nLine, W/2, curY); nLine = nWords[i]; curY += nLH
     } else nLine = t
   }
   ctx.fillText(nLine, W/2, curY)
-  curY += 13 * sc
+  curY += 14 * sc
 
-  // "THANK YOU FOR YOUR FEEDBACK" — burgundy spaced caps
+  // "THANK YOU FOR YOUR FEEDBACK" — rose spaced caps
   if (plan !== 'free') {
     ctx.fillStyle = ROSE
-    ctx.font = `600 ${4.5 * sc}px Arial, sans-serif`
-    ctx.letterSpacing = `${1.5 * sc}px`
+    ctx.font = `600 ${4.8 * sc}px Arial, sans-serif`
+    ctx.letterSpacing = `${1.8 * sc}px`
     ctx.textAlign = 'center'
-    ctx.fillText('THANK YOU FOR YOUR FEEDBACK', W/2, curY)
+    ctx.fillText('THANK YOU FOR YOUR FEEDBACK', W / 2, curY)
     ctx.letterSpacing = '0px'
-    curY += 12 * sc
+    curY += 14 * sc
   }
 
-  // Location text
+  // Location text (soft grey Georgia, wraps)
   if (locationName) {
     ctx.fillStyle = MID
-    ctx.font = `${5.8 * sc}px Georgia, serif`
+    ctx.font = `${6 * sc}px Georgia, serif`
     ctx.textAlign = 'center'
     const lWords = locationName.split(' ')
     let lLine = ''
     for (let i = 0; i < lWords.length; i++) {
       const t = lLine ? lLine + ' ' + lWords[i] : lWords[i]
       if (ctx.measureText(t).width > maxTW && lLine) {
-        ctx.fillText(lLine, W/2, curY); lLine = lWords[i]; curY += 9 * sc
+        ctx.fillText(lLine, W/2, curY); lLine = lWords[i]; curY += 10 * sc
       } else lLine = t
     }
     ctx.fillText(lLine, W/2, curY)
-    curY += 9 * sc
   }
 
-  // Free plan branding at bottom
+  // Free plan — powered by at bottom
   if (plan === 'free') {
     ctx.fillStyle = MID
     ctx.font = `${4.5 * sc}px Arial, sans-serif`
     ctx.textAlign = 'center'
-    ctx.fillText('Powered by QRFeedback.ai', W/2, H - 10 * sc)
+    ctx.fillText('Powered by QRFeedback.ai', W / 2, H - bdr - 10 * sc)
   }
 
   return canvas
