@@ -513,9 +513,9 @@ export default function QRCodesPage() {
 </head>
 <body>
   <div class="card-wrap">
-    <img src="\${imgData}" alt="QR Card" />
+    <img src="${imgData}" alt="QR Card" />
   </div>
-  <div class="card-meta">\${form.title}\${form.location_name ? ' · ' + form.location_name : ''}</div>
+  <div class="card-meta">${form.title}${form.location_name ? ' · ' + form.location_name : ''}</div>
   <div class="actions">
     <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
     <button class="btn-close" onclick="window.close()">Close</button>
