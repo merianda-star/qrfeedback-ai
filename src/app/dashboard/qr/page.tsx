@@ -131,7 +131,7 @@ async function drawCenterOverlay(
     const maxW = badgeR * 1.7
     let fontSize = 9
     ctx.font = `bold ${fontSize}px Arial, sans-serif`
-    while (ctx.measureText('QRFeedback.ai').width > maxW && fontSize > 10) {
+    while (ctx.measureText('QRFeedback.ai').width > maxW && fontSize > 5) {
       fontSize -= 0.5
       ctx.font = `bold ${fontSize}px Arial, sans-serif`
     }
@@ -237,7 +237,7 @@ async function generatePrintCard(
 
   // QRFEEDBACK.AI
   ctx.fillStyle = 'rgba(255,255,255,0.28)'
-  ctx.font = `${4 * sc}px Arial, sans-serif`
+  ctx.font = `${7 * sc}px Arial, sans-serif`
   ctx.letterSpacing = `${2 * sc}px`
   ctx.textAlign = 'center'
   ctx.fillText('QRFEEDBACK.AI', W / 2, 118 * sc)
