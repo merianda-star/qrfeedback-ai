@@ -237,7 +237,7 @@ async function generatePrintCard(
 
   // QRFEEDBACK.AI
   ctx.fillStyle = 'rgba(255,255,255,0.28)'
-  ctx.font = `${7 * sc}px Arial, sans-serif`
+  ctx.font = `${9 * sc}px Arial, sans-serif`
   ctx.letterSpacing = `${2 * sc}px`
   ctx.textAlign = 'center'
   ctx.fillText('QRFEEDBACK.AI', W / 2, 118 * sc)
