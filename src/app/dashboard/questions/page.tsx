@@ -248,8 +248,8 @@ export default function QuestionsPage() {
   const preloaded = questions.filter(q => q.is_preloaded)
   const custom = questions.filter(q => !q.is_preloaded)
 
-  // Shared edit panel used by both preloaded and custom
-  function EditPanel({ q }: { q: Question }) {
+  // Shared edit panel — plain function (not a component) to prevent remount on every render
+  function renderEditPanel(q: Question) {
     return (
       <div className="q-edit-panel">
         {/* Answer type selector */}
@@ -500,7 +500,7 @@ export default function QuestionsPage() {
               )}
             </div>
 
-            {editingId === q.id && <EditPanel q={q} />}
+            {editingId === q.id && renderEditPanel(q)}
 
             {deletingId === q.id && (
               <div className="delete-confirm">
@@ -569,7 +569,7 @@ export default function QuestionsPage() {
               )}
             </div>
 
-            {editingId === q.id && <EditPanel q={q} />}
+            {editingId === q.id && renderEditPanel(q)}
 
             {deletingId === q.id && (
               <div className="delete-confirm">
