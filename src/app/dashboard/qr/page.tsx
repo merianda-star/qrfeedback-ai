@@ -131,7 +131,7 @@ async function drawCenterOverlay(
     const maxW = badgeR * 1.7
     let fontSize = 9
     ctx.font = `bold ${fontSize}px Arial, sans-serif`
-    while (ctx.measureText('QRFeedback.ai').width > maxW && fontSize > 5) {
+    while (ctx.measureText('QRFeedback.ai').width > maxW && fontSize > 10) {
       fontSize -= 0.5
       ctx.font = `bold ${fontSize}px Arial, sans-serif`
     }
