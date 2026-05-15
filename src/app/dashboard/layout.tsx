@@ -87,6 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [formCount, setFormCount] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [trialBannerDismissed, setTrialBannerDismissed] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     loadProfile()
@@ -108,9 +109,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => { document.body.style.overflow = '' }
   }, [sidebarOpen])
 
+  // ── Activity logging — fires on every page navigation ─────────────────────
+  // This also keeps Supabase active (prevents free-tier inactivity pause)
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('user_activity')
+      .insert({ user_id: userId, event_type: 'page_visit', page: pathname })
+      .then(() => {}).catch(() => {})
+  }, [pathname, userId])
+
   async function loadProfile() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setUserId(user.id)
 
     const { data } = await supabase
       .from('profiles')
@@ -124,7 +136,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     setProfileLoaded(true)
 
-    // Check and expire trial on every dashboard load
+    // Log sign-in event if user just signed in (within last 5 minutes)
+    if (user.last_sign_in_at) {
+      const timeSinceSignIn = Date.now() - new Date(user.last_sign_in_at).getTime()
+      if (timeSinceSignIn < 5 * 60 * 1000) {
+        supabase
+          .from('user_activity')
+          .insert({ user_id: user.id, event_type: 'signin', page: pathname })
+          .then(() => {}).catch(() => {})
+      }
+    }
+
+    // Check and expire trial
     try {
       const res = await fetch('/api/auth/check-trial', { method: 'POST' })
       const json = await res.json()
@@ -189,49 +212,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {profileLoaded && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
             <div className={`sb-plan-pill ${isOnTrial ? (profile?.plan === 'business' ? 'business-trial' : 'trial') : ''}`}>{planLabel}</div>
-            {isOnTrial && (
-              <div className="sb-trial-days">{daysLeft}d left</div>
-            )}
+            {isOnTrial && <div className="sb-trial-days">{daysLeft}d left</div>}
           </div>
         )}
       </div>
 
       <nav className="sb-nav">
-        {navGroups.map(group => (
-          <div key={group.section}>
-            <div className="sb-section-label">{group.section}</div>
-            {group.items.map(item => {
-              if ((item as any).businessOnly && !isBusiness) return null
-              if ((item as any).proAndAbove && isFree) return null
-              if ((item as any).adminOnly && !isAdmin) return null
-              const isActive = (item as any).exact
-                ? pathname === item.href
-                : pathname.startsWith(item.href)
-              const isBusinessItem = (item as any).businessOnly
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  id={navIds[item.href]}
-                  className={`nav-link${isBusinessItem ? ' business-link' : ''}${isActive ? ' active' : ''}`}
-                  onClick={() => {
-                    if ((item as any).badge) setUnreadCount(0)
-                    setSidebarOpen(false)
-                  }}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  {item.label}
-                  {(item as any).badge && unreadCount > 0 && (
-                    <span className="nav-badge">{unreadCount}</span>
-                  )}
-                  {isBusinessItem && !isActive && (
-                    <span className="nav-biz-tag">Business</span>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
+        {navGroups.map(group => {
+          const visibleItems = group.items.filter(item => {
+            if ((item as any).adminOnly && !isAdmin) return false
+            if ((item as any).businessOnly && !isBusiness) return false
+            if ((item as any).proAndAbove && isFree) return false
+            return true
+          })
+          if (visibleItems.length === 0) return null
+          return (
+            <div key={group.section}>
+              <div className="sb-section-label">{group.section}</div>
+              {visibleItems.map(item => {
+                const isActive = (item as any).exact
+                  ? pathname === item.href
+                  : pathname.startsWith(item.href)
+                const isBusinessItem = (item as any).businessOnly
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    id={navIds[item.href]}
+                    className={`nav-link${isBusinessItem ? ' business-link' : ''}${isActive ? ' active' : ''}`}
+                    onClick={() => {
+                      if ((item as any).badge) setUnreadCount(0)
+                      setSidebarOpen(false)
+                    }}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    {item.label}
+                    {(item as any).badge && unreadCount > 0 && (
+                      <span className="nav-badge">{unreadCount}</span>
+                    )}
+                    {isBusinessItem && !isActive && (
+                      <span className="nav-biz-tag">Business</span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          )
+        })}
       </nav>
 
       {profileLoaded && isFree && (
@@ -281,7 +308,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'DM Sans', sans-serif; background: #fdf6f4; }
-
         :root {
           --bg: #fdf6f4; --surface: #ffffff; --border: #e8d5cf; --border-md: #d9c2bb;
           --rose: #b05c52; --rose-dark: #8c3d34; --rose-soft: #f7ece9;
@@ -289,58 +315,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           --terra: #c4896a; --green: #4a7a5a;
           --sb-width: 232px;
         }
-
         .dash-wrap { display: flex; min-height: 100vh; }
-
-        .dash-sb {
-          width: var(--sb-width); background: var(--surface);
-          position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
-          display: flex; flex-direction: column; border-right: 1px solid var(--border);
-        }
-
+        .dash-sb { width: var(--sb-width); background: var(--surface); position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
         .sb-overlay { display: none; position: fixed; inset: 0; z-index: 200; }
         .sb-overlay.open { display: flex; }
         .sb-overlay-backdrop { position: absolute; inset: 0; background: rgba(42,31,29,0.45); backdrop-filter: blur(2px); }
-        .sb-overlay-panel {
-          position: relative; width: 272px; max-width: 85vw;
-          background: var(--surface); height: 100vh;
-          display: flex; flex-direction: column;
-          border-right: 1px solid var(--border);
-          overflow-y: auto; z-index: 1;
-          animation: slideInLeft 0.22s ease both;
-        }
+        .sb-overlay-panel { position: relative; width: 272px; max-width: 85vw; background: var(--surface); height: 100vh; display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow-y: auto; z-index: 1; animation: slideInLeft 0.22s ease both; }
         @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-
         .sb-logo-area { padding: 24px 20px 18px; border-bottom: 1px solid var(--border); }
         .sb-logo-text { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: var(--text); }
         .sb-logo-dot { color: var(--rose); }
         .sb-tagline { font-size: 0.62rem; color: var(--text-soft); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 3px; }
-
         .sb-biz-card { margin: 12px 14px 0; padding: 10px 13px; background: var(--rose-soft); border-radius: 8px; border: 1px solid var(--border); min-height: 52px; }
         .sb-biz-name { font-size: 0.78rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 18px; }
         .sb-plan-pill { display: inline-block; margin-top: 4px; padding: 2px 9px; border-radius: 20px; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; background: var(--rose); color: #fff; }
         .sb-plan-pill.trial { background: #c4896a; }
         .sb-plan-pill.business-trial { background: #4a7a5a; }
         .sb-trial-days { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 20px; font-size: 0.58rem; font-weight: 700; background: #fef3e8; color: #7a5a20; border: 1px solid #f0d8a0; }
-
         .sb-nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
         .sb-section-label { font-size: 0.55rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-soft); padding: 0 10px; margin: 14px 0 5px; }
-
         .nav-link { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 7px; margin-bottom: 1px; font-size: 0.82rem; font-weight: 500; color: var(--text-mid); text-decoration: none; transition: all 0.15s; }
         .nav-link:hover { background: var(--rose-soft); color: var(--text); }
         .nav-link.active { background: var(--rose-soft); color: var(--rose); font-weight: 600; border-left: 2px solid var(--rose); padding-left: 9px; }
         .nav-link.business-link:hover { background: #edf4ef; color: var(--green); }
         .nav-link.business-link.active { background: #edf4ef; color: var(--green); border-left-color: var(--green); }
-
         .nav-icon { width: 20px; text-align: center; font-size: 0.85rem; flex-shrink: 0; }
         .nav-badge { margin-left: auto; background: var(--rose); color: #fff; font-size: 0.56rem; font-weight: 800; padding: 2px 6px; border-radius: 20px; }
         .nav-biz-tag { margin-left: auto; font-size: 0.52rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 10px; background: #edf4ef; color: var(--green); border: 1px solid rgba(74,122,90,0.2); }
-
         .sb-trial-card { margin: 0 14px 10px; padding: 12px 13px; background: linear-gradient(135deg, #fef3e8, #fff8f0); border: 1px solid #f0d8a0; border-radius: 10px; }
         .sb-trial-card-title { font-size: 0.72rem; font-weight: 700; color: #7a5a20; margin-bottom: 2px; }
         .sb-trial-card-days { font-size: 1rem; font-weight: 700; color: #5a3a10; font-family: 'DM Serif Display', serif; margin-bottom: 4px; }
         .sb-trial-card-sub { font-size: 0.62rem; color: #a07840; margin-bottom: 8px; line-height: 1.5; }
-
         .sb-upgrade-card { margin: 0 14px 10px; padding: 12px 13px; background: linear-gradient(135deg, #fdf0ee, #fff8f6); border: 1px solid var(--border-md); border-radius: 10px; }
         .sb-upgrade-title { font-size: 0.72rem; font-weight: 700; color: var(--text); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
         .sb-upgrade-plan { font-size: 0.58rem; color: var(--text-soft); font-weight: 600; }
@@ -349,7 +354,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .sb-usage-label { font-size: 0.62rem; color: var(--text-soft); margin-bottom: 8px; }
         .sb-upgrade-btn { width: 100%; padding: 7px; border-radius: 7px; border: none; background: var(--rose); color: #fff; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; text-align: center; }
         .sb-upgrade-btn:hover { background: var(--rose-dark); }
-
         .sb-footer { padding: 12px 14px 18px; border-top: 1px solid var(--border); }
         .sb-user-row { display: flex; align-items: center; gap: 9px; }
         .sb-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--rose-soft); border: 1.5px solid var(--border-md); display: flex; align-items: center; justify-content: center; font-family: 'DM Serif Display', serif; font-size: 0.8rem; color: var(--rose); flex-shrink: 0; overflow: hidden; }
@@ -358,40 +362,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .sb-user-email { font-size: 0.62rem; color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .sb-logout-btn { background: transparent; border: 1px solid var(--border); cursor: pointer; color: var(--text-soft); font-size: 0.7rem; padding: 4px 9px; border-radius: 6px; transition: all 0.15s; margin-left: auto; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
         .sb-logout-btn:hover { background: var(--rose-soft); color: var(--rose); border-color: var(--border-md); }
-
         .trial-banner { background: linear-gradient(135deg, #fef3e8, #fff8f0); border-bottom: 1px solid #f0d8a0; padding: 9px 28px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .trial-banner-text { font-size: 0.78rem; color: #5a3a10; flex: 1; }
         .trial-banner-text strong { font-weight: 700; }
         .trial-banner-upgrade { padding: 5px 14px; border-radius: 7px; border: none; background: #c4896a; color: #fff; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; transition: all 0.15s; }
         .trial-banner-upgrade:hover { background: #a06848; }
         .trial-banner-dismiss { background: none; border: none; cursor: pointer; color: #a07840; font-size: 1rem; padding: 2px; line-height: 1; flex-shrink: 0; }
-
         .dash-main { margin-left: var(--sb-width); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-
-        .dash-topbar {
-          background: var(--surface); border-bottom: 1px solid var(--border);
-          padding: 0 28px; height: 58px;
-          display: flex; align-items: center; justify-content: space-between;
-          position: sticky; top: 0; z-index: 50; gap: 12px;
-        }
+        .dash-topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; height: 58px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; gap: 12px; }
         .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
         .topbar-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
         .hamburger { display: none; flex-direction: column; justify-content: center; align-items: center; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; gap: 5px; flex-shrink: 0; transition: all 0.15s; }
         .hamburger:hover { background: var(--rose-soft); border-color: var(--border-md); }
         .hamburger span { display: block; width: 18px; height: 2px; background: var(--text-mid); border-radius: 2px; }
-
         .tb-btn { padding: 6px 14px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); font-size: 0.77rem; font-weight: 500; cursor: pointer; color: var(--text-mid); text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
         .tb-btn:hover { border-color: var(--border-md); color: var(--text); background: var(--rose-soft); }
         .tb-btn-primary { padding: 6px 16px; border-radius: 7px; background: var(--rose); border: none; font-size: 0.77rem; font-weight: 600; cursor: pointer; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.15s; font-family: 'DM Sans', sans-serif; box-shadow: 0 1px 3px rgba(176,92,82,0.25); white-space: nowrap; }
         .tb-btn-primary:hover { background: var(--rose-dark); transform: translateY(-1px); }
-
         .dash-content { padding: 24px 28px; flex: 1; background: var(--bg); }
-
         .sb-nav::-webkit-scrollbar { width: 3px; }
         .sb-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-
         @media (max-width: 768px) {
           .dash-sb { display: none; }
           .dash-main { margin-left: 0; }
@@ -401,7 +392,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           .tb-btn { display: none; }
           .trial-banner { padding: 9px 16px; }
         }
-
         @media (min-width: 769px) and (max-width: 1024px) {
           :root { --sb-width: 200px; }
           .dash-topbar { padding: 0 20px; }
@@ -411,12 +401,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="dash-wrap">
         <div className="dash-sb">{sidebarContent}</div>
-
         <div className={`sb-overlay ${sidebarOpen ? 'open' : ''}`}>
           <div className="sb-overlay-backdrop" onClick={() => setSidebarOpen(false)} />
           <div className="sb-overlay-panel">{sidebarContent}</div>
         </div>
-
         <div className="dash-main">
           {isOnTrial && !trialBannerDismissed && profileLoaded && (
             <div className="trial-banner">
@@ -425,13 +413,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <strong>{profile?.plan === 'business' ? 'Business' : 'Pro'} Trial — {daysLeft} day{daysLeft !== 1 ? 's' : ''} left.</strong>{' '}
                 You're on a free {profile?.plan === 'business' ? 'Business' : 'Pro'} trial. After it ends your account moves to the Free plan.
               </div>
-              <button className="trial-banner-upgrade" onClick={() => router.push('/dashboard/profile')}>
-                Upgrade to keep Pro →
-              </button>
+              <button className="trial-banner-upgrade" onClick={() => router.push('/dashboard/profile')}>Upgrade to keep Pro →</button>
               <button className="trial-banner-dismiss" onClick={() => setTrialBannerDismissed(true)}>✕</button>
             </div>
           )}
-
           <div className="dash-topbar">
             <div className="topbar-left">
               <button className="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
@@ -448,14 +433,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
 
-      {showWizard && (
-        <OnboardingWizard onComplete={() => { setShowWizard(false); setShowTour(true) }} />
-      )}
-      {showTour && (
-        <DashboardTour onComplete={() => setShowTour(false)} />
-      )}
+      {showWizard && <OnboardingWizard onComplete={() => { setShowWizard(false); setShowTour(true) }} />}
+      {showTour && <DashboardTour onComplete={() => setShowTour(false)} />}
 
-      {/* Trial Expired Modal */}
       {showTrialExpiredModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,31,29,0.5)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(6px)' }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, border: '1px solid #e8d5cf', boxShadow: '0 24px 64px rgba(42,31,29,0.18)', overflow: 'hidden' }}>
@@ -476,13 +456,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 $19<span style={{ fontSize: '0.9rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 400 }}>/mo</span>
               </div>
               <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#b09490', marginBottom: 16 }}>Cancel anytime · No commitment</div>
-              <button
-                onClick={() => { setShowTrialExpiredModal(false); router.push('/dashboard/profile') }}
+              <button onClick={() => { setShowTrialExpiredModal(false); router.push('/dashboard/profile') }}
                 style={{ width: '100%', padding: 12, borderRadius: 9, border: 'none', background: '#b05c52', color: '#fff', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', boxShadow: '0 3px 12px rgba(176,92,82,0.3)', marginBottom: 8 }}>
                 Upgrade to Pro →
               </button>
-              <button
-                onClick={() => setShowTrialExpiredModal(false)}
+              <button onClick={() => setShowTrialExpiredModal(false)}
                 style={{ width: '100%', padding: 10, borderRadius: 9, border: '1.5px solid #e8d5cf', background: 'transparent', color: '#7a5a56', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                 Continue on Free plan
               </button>

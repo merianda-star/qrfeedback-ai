@@ -16,6 +16,8 @@ type User = {
   response_count: number
   failed_ai_count: number
   trial_ends_at: string | null
+  is_admin: boolean
+  is_master_admin: boolean
 }
 
 type Stats = {
@@ -41,6 +43,31 @@ type ContactRequest = {
   replied_at: string | null
 }
 
+type AdminProfile = {
+  id: string
+  email: string
+  full_name: string | null
+  is_master_admin: boolean
+}
+
+type ActivityDay = {
+  date: string
+  visits: number
+  signins: number
+  unique_users: number
+  total: number
+}
+
+type ActivityEntry = {
+  id: string
+  user_id: string
+  user_email: string
+  user_name: string | null
+  event_type: string
+  page: string | null
+  created_at: string
+}
+
 const PLAN_COLORS: Record<string, { bg: string; color: string }> = {
   free:     { bg: '#f7ece9', color: '#b05c52' },
   pro:      { bg: '#fef3e8', color: '#c4896a' },
@@ -54,6 +81,19 @@ const BIZ_TYPE_LABELS: Record<string, string> = {
   services: '💼 Services',
   hospitality: '🏨 Hotel / Hospitality',
   other: '⬡ Other',
+}
+
+const PAGE_LABELS: Record<string, string> = {
+  '/dashboard': 'Overview',
+  '/dashboard/responses': 'Responses',
+  '/dashboard/analytics': 'Analytics',
+  '/dashboard/insights': 'AI Insights',
+  '/dashboard/digest': 'Weekly Digest',
+  '/dashboard/forms': 'My Forms',
+  '/dashboard/questions': 'Questions',
+  '/dashboard/qr': 'QR Codes',
+  '/dashboard/profile': 'Profile',
+  '/dashboard/settings': 'Settings',
 }
 
 function timeAgo(dateStr: string | null) {
@@ -71,6 +111,10 @@ function timeAgo(dateStr: string | null) {
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatShortDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
 function getDaysLeft(trialEndsAt: string): number {
@@ -99,9 +143,12 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
   const [actionError, setActionError] = useState('')
-  const [activeTab, setActiveTab] = useState<'users' | 'failed-ai' | 'signup-activity' | 'trial-expiry' | 'inactive' | 'contact-requests'>('users')
+  const [activeTab, setActiveTab] = useState<
+    'users' | 'failed-ai' | 'signup-activity' | 'trial-expiry' | 'inactive' | 'contact-requests' | 'manage-admins' | 'activity'
+  >('users')
   const [failedAI, setFailedAI] = useState<any[]>([])
 
+  // Contact requests
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([])
   const [contactLoading, setContactLoading] = useState(false)
   const [selectedContact, setSelectedContact] = useState<ContactRequest | null>(null)
@@ -112,6 +159,7 @@ export default function AdminPage() {
   const [replyError, setReplyError] = useState('')
   const [contactFilter, setContactFilter] = useState<'all' | 'new' | 'replied'>('all')
 
+  // User detail actions
   const [showEmailChange, setShowEmailChange] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [showDelete, setShowDelete] = useState(false)
@@ -121,6 +169,20 @@ export default function AdminPage() {
   const [showTrialEdit, setShowTrialEdit] = useState(false)
   const [inactiveEmailLoading, setInactiveEmailLoading] = useState<string | null>(null)
   const [inactiveEmailMsg, setInactiveEmailMsg] = useState<Record<string, string>>({})
+
+  // Admin management (master admin only)
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false)
+  const [adminsList, setAdminsList] = useState<AdminProfile[]>([])
+  const [adminSearch, setAdminSearch] = useState('')
+  const [adminSearchResult, setAdminSearchResult] = useState<User | null>(null)
+  const [adminActionLoading, setAdminActionLoading] = useState(false)
+  const [adminActionMsg, setAdminActionMsg] = useState('')
+  const [adminActionError, setAdminActionError] = useState('')
+
+  // Activity log
+  const [activityDays, setActivityDays] = useState<ActivityDay[]>([])
+  const [recentActivity, setRecentActivity] = useState<ActivityEntry[]>([])
+  const [todayStats, setTodayStats] = useState({ visits: 0, signins: 0, unique_users: 0 })
 
   useEffect(() => { loadData() }, [])
 
@@ -137,11 +199,18 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (selectedContact) {
-      setReplySubject(`Re: Your QRFeedback.ai Business Enquiry`)
+      setReplySubject('Re: Your QRFeedback.ai Business Enquiry')
       setReplyBody(`Hi ${selectedContact.name},\n\nThank you for your interest in QRFeedback.ai Business plan.\n\n`)
       setReplyMsg(''); setReplyError('')
     }
   }, [selectedContact?.id])
+
+  // Admin search
+  useEffect(() => {
+    if (!adminSearch.trim()) { setAdminSearchResult(null); return }
+    const found = users.find(u => u.email.toLowerCase() === adminSearch.toLowerCase().trim())
+    setAdminSearchResult(found || null)
+  }, [adminSearch, users])
 
   async function loadData() {
     setLoading(true)
@@ -151,16 +220,18 @@ export default function AdminPage() {
     setUsers(json.users || [])
     setStats(json.stats || null)
     setFailedAI(json.failedAI || [])
+    setIsMasterAdmin(!!json.isMasterAdmin)
+    setAdminsList(json.admins || [])
+    setActivityDays(json.activityDays || [])
+    setRecentActivity(json.recentActivity || [])
+    setTodayStats(json.todayStats || { visits: 0, signins: 0, unique_users: 0 })
     setLoading(false)
   }
 
   async function loadContactRequests() {
     setContactLoading(true)
     const res = await fetch('/api/admin/contact-requests')
-    if (res.ok) {
-      const json = await res.json()
-      setContactRequests(json.requests || [])
-    }
+    if (res.ok) { const json = await res.json(); setContactRequests(json.requests || []) }
     setContactLoading(false)
   }
 
@@ -168,27 +239,17 @@ export default function AdminPage() {
     if (!selectedContact || !replyBody.trim()) return
     setReplyLoading(true); setReplyMsg(''); setReplyError('')
     const res = await fetch('/api/admin/reply-contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestId: selectedContact.id,
-        to: selectedContact.email,
-        toName: selectedContact.name,
-        subject: replySubject,
-        body: replyBody,
-      }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId: selectedContact.id, to: selectedContact.email, toName: selectedContact.name, subject: replySubject, body: replyBody }),
     })
     const json = await res.json()
     setReplyLoading(false)
     if (json.success) {
       setReplyMsg('Reply sent successfully!')
-      setContactRequests(prev => prev.map(r => r.id === selectedContact.id
-        ? { ...r, status: 'replied', replied_at: new Date().toISOString() } : r))
+      setContactRequests(prev => prev.map(r => r.id === selectedContact.id ? { ...r, status: 'replied', replied_at: new Date().toISOString() } : r))
       setSelectedContact(prev => prev ? { ...prev, status: 'replied', replied_at: new Date().toISOString() } : null)
       setTimeout(() => setReplyMsg(''), 4000)
-    } else {
-      setReplyError(json.error || 'Failed to send reply')
-    }
+    } else { setReplyError(json.error || 'Failed to send reply') }
   }
 
   async function handlePlanChange(userId: string, newPlan: string) {
@@ -217,7 +278,7 @@ export default function AdminPage() {
     const json = await res.json()
     setActionLoading(false)
     if (json.success) {
-      setActionMsg(`${plan.charAt(0).toUpperCase() + plan.slice(1)} trial set to ${days} days from now`)
+      setActionMsg(`${plan.charAt(0).toUpperCase() + plan.slice(1)} trial set to ${days} days`)
       const newTrialEnd = trialEndsAt.toISOString()
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, plan, trial_ends_at: newTrialEnd } : u))
       if (selectedUser?.id === userId) setSelectedUser(prev => prev ? { ...prev, plan, trial_ends_at: newTrialEnd } : null)
@@ -296,8 +357,36 @@ export default function AdminPage() {
     })
     const json = await res.json()
     setInactiveEmailLoading(null)
-    setInactiveEmailMsg(prev => ({ ...prev, [user.id]: json.success ? '✓ Email sent' : `✗ ${json.error}` }))
+    setInactiveEmailMsg(prev => ({ ...prev, [user.id]: json.success ? '✓ Sent' : `✗ ${json.error}` }))
     setTimeout(() => setInactiveEmailMsg(prev => { const n = { ...prev }; delete n[user.id]; return n }), 4000)
+  }
+
+  async function handleAdminAction(action: 'promote' | 'revoke', userId: string) {
+    setAdminActionLoading(true); setAdminActionMsg(''); setAdminActionError('')
+    const res = await fetch('/api/admin/manage-admins', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, userId }),
+    })
+    const json = await res.json()
+    setAdminActionLoading(false)
+    if (json.success) {
+      setAdminActionMsg(action === 'promote'
+        ? `✓ ${json.user.email} has been granted admin access`
+        : `✓ Admin access revoked from ${json.user.email}`)
+      // Update local state
+      if (action === 'promote') {
+        const user = users.find(u => u.id === userId)
+        if (user) setAdminsList(prev => [...prev, { id: user.id, email: user.email, full_name: user.full_name, is_master_admin: false }])
+      } else {
+        setAdminsList(prev => prev.filter(a => a.id !== userId))
+      }
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_admin: action === 'promote' } : u))
+      setAdminSearch('')
+      setAdminSearchResult(null)
+      setTimeout(() => setAdminActionMsg(''), 4000)
+    } else {
+      setAdminActionError(json.error || 'Action failed')
+    }
   }
 
   const filtered = users.filter(u => {
@@ -317,6 +406,7 @@ export default function AdminPage() {
   const maxSignups = Math.max(...signupData.map(d => d.count), 1)
   const newContactCount = contactRequests.filter(r => r.status === 'new').length
   const filteredContacts = contactRequests.filter(r => contactFilter === 'all' || r.status === contactFilter)
+  const maxActivity = Math.max(...activityDays.map(d => d.total), 1)
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fdf6f4', fontFamily: 'DM Sans, sans-serif' }}>
@@ -337,6 +427,7 @@ export default function AdminPage() {
           --terra: #c4896a; --green: #4a7a5a; --green-soft: #edf4ef;
           --ink: #1a1210; --red: #c0392b; --red-soft: #fdecea;
           --amber: #fef9ec; --amber-border: #f0d98a; --amber-text: #7a6020;
+          --purple: #6c4fa0; --purple-soft: #f0eeff;
         }
         .admin-wrap { display: flex; min-height: 100vh; }
         .admin-sidebar { width: 220px; background: var(--ink); position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.06); overflow-y: auto; }
@@ -344,6 +435,7 @@ export default function AdminPage() {
         .sb-logo-text { font-family: 'DM Serif Display', serif; font-size: 1rem; color: #f5ede8; }
         .sb-logo-dot { color: var(--rose); }
         .sb-badge { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 2px 7px; border-radius: 10px; background: rgba(176,92,82,0.3); color: #f0c4b8; margin-top: 4px; display: inline-block; }
+        .sb-master-badge { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 2px 7px; border-radius: 10px; background: rgba(196,137,106,0.3); color: #f0d4b8; margin-top: 4px; margin-left: 5px; display: inline-block; }
         .sb-section { font-size: 0.55rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(245,237,232,0.3); padding: 12px 18px 5px; }
         .sb-nav { padding: 10px 10px; flex: 1; }
         .sb-link { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 7px; margin-bottom: 2px; font-size: 0.8rem; font-weight: 500; color: rgba(245,237,232,0.55); cursor: pointer; transition: all 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; }
@@ -448,18 +540,46 @@ export default function AdminPage() {
         .chart-bar { width: 100%; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--rose), var(--terra)); min-height: 2px; transition: height 0.4s; }
         .chart-bar-label { font-size: 0.55rem; color: var(--text-soft); text-align: center; }
         .chart-bar-count { font-size: 0.6rem; font-weight: 700; color: var(--text); }
+        /* Admin management */
+        .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .admin-card.master { border-color: #f0d0b0; background: #fffaf5; }
+        .master-crown { font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 20px; background: #fff3e8; color: #c4896a; border: 1px solid #f0d0b0; }
+        .admin-badge-pill { font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 20px; background: var(--purple-soft); color: var(--purple); border: 1px solid #d8ccf0; }
+        .revoke-btn { padding: 5px 12px; border-radius: 6px; border: 1.5px solid #e8b4b0; background: transparent; color: var(--red); font-size: 0.7rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; white-space: nowrap; }
+        .revoke-btn:hover { background: var(--red-soft); }
+        .revoke-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .promote-btn { padding: 5px 14px; border-radius: 6px; border: none; background: var(--purple); color: #fff; font-size: 0.72rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+        .promote-btn:hover { background: #5a3f8a; }
+        .promote-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* Activity log */
+        .activity-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        .activity-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; }
+        .activity-stat-val { font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--text); }
+        .activity-stat-label { font-size: 0.65rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-top: 2px; }
+        .activity-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; padding: 10px 16px; border-bottom: 1px solid var(--border); align-items: center; font-size: 0.78rem; }
+        .activity-row:last-child { border-bottom: none; }
+        .event-pill { display: inline-flex; padding: 2px 9px; border-radius: 20px; font-size: 0.62rem; font-weight: 700; }
+        .event-pill.signin { background: var(--green-soft); color: var(--green); }
+        .event-pill.page_visit { background: var(--rose-soft); color: var(--rose); }
+        .activity-chart-bar { border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.4s; }
+        .activity-chart-bar.total { background: linear-gradient(180deg, var(--rose), var(--terra)); }
         @media (max-width: 900px) {
           .stats-grid { grid-template-columns: repeat(2, 1fr); }
           .table-header, .user-row { grid-template-columns: 2fr 1fr 1fr 80px; }
           .trial-row, .inactive-row { grid-template-columns: 1fr 1fr; }
+          .activity-stats { grid-template-columns: repeat(3, 1fr); }
         }
       `}</style>
 
       <div className="admin-wrap">
+        {/* Sidebar */}
         <div className="admin-sidebar">
           <div className="sb-logo">
             <div className="sb-logo-text">QRFeedback<span className="sb-logo-dot">.ai</span></div>
-            <div className="sb-badge">Admin Panel</div>
+            <div style={{ marginTop: 4 }}>
+              <span className="sb-badge">Admin Panel</span>
+              {isMasterAdmin && <span className="sb-master-badge">Master</span>}
+            </div>
           </div>
           <nav className="sb-nav">
             <div className="sb-section">Management</div>
@@ -470,7 +590,13 @@ export default function AdminPage() {
             <button className={`sb-link ${activeTab === 'contact-requests' ? 'active' : ''}`} onClick={() => { setActiveTab('contact-requests'); setSelectedUser(null) }}>
               ✉ Contact Requests {newContactCount > 0 && <span className="sb-link-badge">{newContactCount}</span>}
             </button>
+            {isMasterAdmin && (
+              <button className={`sb-link ${activeTab === 'manage-admins' ? 'active' : ''}`} onClick={() => { setActiveTab('manage-admins'); setSelectedUser(null) }}>
+                👑 Manage Admins {adminsList.length > 0 && <span className="sb-link-badge">{adminsList.length}</span>}
+              </button>
+            )}
             <div className="sb-section">Insights</div>
+            <button className={`sb-link ${activeTab === 'activity' ? 'active' : ''}`} onClick={() => setActiveTab('activity')}>📊 Activity Log</button>
             <button className={`sb-link ${activeTab === 'signup-activity' ? 'active' : ''}`} onClick={() => setActiveTab('signup-activity')}>📈 Signup Activity</button>
             <button className={`sb-link ${activeTab === 'trial-expiry' ? 'active' : ''}`} onClick={() => setActiveTab('trial-expiry')}>
               ⏳ Trial Expiry {trialExpiryUsers.length > 0 && <span className="sb-link-badge">{trialExpiryUsers.length}</span>}
@@ -480,15 +606,14 @@ export default function AdminPage() {
             </button>
           </nav>
           <div className="sb-footer">
-            <button
-              onClick={() => router.push('/dashboard')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', color: 'rgba(245,237,232,0.35)', fontSize: '0.75rem' }}>
+            <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', color: 'rgba(245,237,232,0.35)', fontSize: '0.75rem' }}>
               ← Back to Dashboard
             </button>
           </div>
         </div>
 
         <div className="admin-main">
+          {/* Topbar */}
           <div className="admin-topbar">
             <div className="topbar-title">
               {activeTab === 'users' && 'User Management'}
@@ -497,6 +622,8 @@ export default function AdminPage() {
               {activeTab === 'trial-expiry' && 'Trial Expiry'}
               {activeTab === 'inactive' && 'Inactive Users'}
               {activeTab === 'contact-requests' && 'Contact Requests'}
+              {activeTab === 'manage-admins' && 'Manage Admins'}
+              {activeTab === 'activity' && 'Activity Log'}
             </div>
             <button onClick={loadData} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text-mid)', fontFamily: 'DM Sans, sans-serif' }}>
               ↺ Refresh
@@ -504,6 +631,7 @@ export default function AdminPage() {
           </div>
 
           <div className="admin-content">
+            {/* Stats grid — always visible */}
             {stats && (
               <div className="stats-grid">
                 <div className="stat-card">
@@ -558,7 +686,11 @@ export default function AdminPage() {
                     return (
                       <div key={u.id} className={`user-row ${selectedUser?.id === u.id ? 'selected' : ''}`} onClick={() => setSelectedUser(u)}>
                         <div>
-                          <div className="user-name">{u.full_name || '—'}</div>
+                          <div className="user-name">
+                            {u.full_name || '—'}
+                            {u.is_master_admin && <span style={{ marginLeft: 6, fontSize: '0.58rem', background: '#fff3e8', color: '#c4896a', padding: '1px 6px', borderRadius: 10, border: '1px solid #f0d0b0', fontWeight: 800 }}>MASTER</span>}
+                            {u.is_admin && !u.is_master_admin && <span style={{ marginLeft: 6, fontSize: '0.58rem', background: '#f0eeff', color: '#6c4fa0', padding: '1px 6px', borderRadius: 10, border: '1px solid #d8ccf0', fontWeight: 800 }}>ADMIN</span>}
+                          </div>
                           <div className="user-email">{u.email}</div>
                           {u.business_name && <div style={{ fontSize: '0.68rem', color: 'var(--text-soft)', marginTop: 1 }}>🏢 {u.business_name}</div>}
                         </div>
@@ -614,20 +746,14 @@ export default function AdminPage() {
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', marginLeft: 'auto' }}>{filteredContacts.length} requests</span>
                     <button onClick={loadContactRequests} style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text-mid)', fontFamily: 'DM Sans, sans-serif' }}>↺</button>
                   </div>
-                  {contactLoading ? (
-                    <div className="empty-state">Loading...</div>
-                  ) : filteredContacts.length === 0 ? (
+                  {contactLoading ? <div className="empty-state">Loading...</div> : filteredContacts.length === 0 ? (
                     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '48px 24px', textAlign: 'center' }}>
                       <div style={{ fontSize: '2rem', marginBottom: 12 }}>✉</div>
                       <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1rem', color: 'var(--text)', marginBottom: 6 }}>No contact requests yet</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)' }}>When businesses fill out the contact form, they'll appear here</div>
                     </div>
                   ) : filteredContacts.map(req => (
-                    <div
-                      key={req.id}
-                      className={`contact-card ${selectedContact?.id === req.id ? 'selected' : ''} ${req.status === 'replied' ? 'replied' : ''}`}
-                      onClick={() => setSelectedContact(selectedContact?.id === req.id ? null : req)}
-                    >
+                    <div key={req.id} className={`contact-card ${selectedContact?.id === req.id ? 'selected' : ''} ${req.status === 'replied' ? 'replied' : ''}`}
+                      onClick={() => setSelectedContact(selectedContact?.id === req.id ? null : req)}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                         <div>
                           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{req.name}</div>
@@ -659,8 +785,7 @@ export default function AdminPage() {
                     <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: '0.75rem', lineHeight: 1.8 }}>
                       <div><strong>Email:</strong> <span style={{ color: 'var(--rose)' }}>{selectedContact.email}</span></div>
                       <div><strong>Business:</strong> {selectedContact.business_name}</div>
-                      <div><strong>Type:</strong> {BIZ_TYPE_LABELS[selectedContact.business_type] || selectedContact.business_type}</div>
-                      {selectedContact.message && <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)', color: 'var(--text-mid)' }}><strong>Their message:</strong> {selectedContact.message}</div>}
+                      {selectedContact.message && <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--border)', color: 'var(--text-mid)' }}><strong>Message:</strong> {selectedContact.message}</div>}
                     </div>
                     {replyMsg && <div className="action-msg">✓ {replyMsg}</div>}
                     {replyError && <div className="action-err">✗ {replyError}</div>}
@@ -669,22 +794,219 @@ export default function AdminPage() {
                       <input className="inline-input" style={{ marginBottom: 0 }} value={replySubject} onChange={e => setReplySubject(e.target.value)} />
                     </div>
                     <div style={{ marginBottom: 12 }}>
-                      <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>
-                        Message <span style={{ fontWeight: 400, fontSize: '0.62rem', color: 'var(--text-soft)' }}>· from info@qrfeedback.ai</span>
-                      </label>
+                      <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 }}>Message</label>
                       <textarea className="inline-textarea" style={{ marginBottom: 0, minHeight: 160 }} value={replyBody} onChange={e => setReplyBody(e.target.value)} />
                     </div>
                     <button className="action-btn rose" style={{ marginBottom: 0 }} disabled={replyLoading || !replyBody.trim()} onClick={handleSendReply}>
                       {replyLoading ? 'Sending...' : selectedContact.status === 'replied' ? '↩ Send Again' : '✉ Send Reply'}
                     </button>
-                    {selectedContact.status === 'new' && (
-                      <div style={{ fontSize: '0.68rem', color: 'var(--text-soft)', textAlign: 'center', marginTop: 8 }}>
-                        Sending will mark this request as replied
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ── MANAGE ADMINS ── */}
+            {activeTab === 'manage-admins' && (
+              <>
+                {adminActionMsg && <div className="action-msg" style={{ marginBottom: 16 }}>{adminActionMsg}</div>}
+                {adminActionError && <div className="action-err" style={{ marginBottom: 16 }}>✗ {adminActionError}</div>}
+
+                {/* Current admins */}
+                <div className="section-card" style={{ marginBottom: 16 }}>
+                  <div className="section-card-header">
+                    <span>Current Admins</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', fontFamily: 'DM Sans, sans-serif' }}>{adminsList.length} admins</span>
+                  </div>
+                  {adminsList.length === 0 ? (
+                    <div className="empty-state">No admins yet — use the form below to add one</div>
+                  ) : adminsList.map(admin => (
+                    <div key={admin.id} className={`admin-card ${admin.is_master_admin ? 'master' : ''}`}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: admin.is_master_admin ? '#fff3e8' : 'var(--purple-soft)', border: `2px solid ${admin.is_master_admin ? '#f0d0b0' : '#d8ccf0'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Serif Display, serif', fontSize: '0.9rem', color: admin.is_master_admin ? '#c4896a' : '#6c4fa0', flexShrink: 0 }}>
+                          {admin.is_master_admin ? '👑' : (admin.full_name?.[0]?.toUpperCase() || admin.email[0].toUpperCase())}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {admin.full_name || '—'}
+                            {admin.is_master_admin
+                              ? <span className="master-crown">Master Admin</span>
+                              : <span className="admin-badge-pill">Admin</span>}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>{admin.email}</div>
+                        </div>
+                      </div>
+                      {!admin.is_master_admin && (
+                        <button
+                          className="revoke-btn"
+                          disabled={adminActionLoading}
+                          onClick={() => handleAdminAction('revoke', admin.id)}
+                        >
+                          Revoke
+                        </button>
+                      )}
+                      {admin.is_master_admin && (
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-soft)', fontStyle: 'italic' }}>Protected</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add new admin */}
+                <div className="section-card">
+                  <div className="section-card-header">Add New Admin</div>
+                  <div style={{ padding: 18 }}>
+                    <div className="info-box">
+                      Enter the exact email address of an existing QRFeedback.ai user to grant them admin access. They must already have a normal account.
+                    </div>
+                    <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Search by Email</label>
+                    <input
+                      className="inline-input"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={adminSearch}
+                      onChange={e => setAdminSearch(e.target.value)}
+                    />
+
+                    {adminSearch.trim() && !adminSearchResult && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)', padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                        No user found with that email address
+                      </div>
+                    )}
+
+                    {adminSearchResult && (
+                      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--rose-soft)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Serif Display, serif', fontSize: '0.9rem', color: 'var(--rose)', flexShrink: 0 }}>
+                            {adminSearchResult.full_name?.[0]?.toUpperCase() || adminSearchResult.email[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
+                              {adminSearchResult.full_name || '—'}
+                              {adminSearchResult.is_admin && <span style={{ marginLeft: 6, fontSize: '0.62rem', background: 'var(--purple-soft)', color: 'var(--purple)', padding: '1px 6px', borderRadius: 10, fontWeight: 800 }}>Already Admin</span>}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>{adminSearchResult.email}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--text-soft)', marginTop: 2 }}>
+                              {adminSearchResult.plan} plan · {adminSearchResult.business_name || 'No business name'}
+                            </div>
+                          </div>
+                        </div>
+                        {adminSearchResult.is_master_admin ? (
+                          <span style={{ fontSize: '0.72rem', color: '#c4896a', fontWeight: 600 }}>Master Admin</span>
+                        ) : adminSearchResult.is_admin ? (
+                          <button className="revoke-btn" disabled={adminActionLoading} onClick={() => handleAdminAction('revoke', adminSearchResult.id)}>
+                            Revoke Admin
+                          </button>
+                        ) : (
+                          <button className="promote-btn" disabled={adminActionLoading} onClick={() => handleAdminAction('promote', adminSearchResult.id)}>
+                            {adminActionLoading ? '...' : '👑 Make Admin'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── ACTIVITY LOG ── */}
+            {activeTab === 'activity' && (
+              <>
+                {/* Today's stats */}
+                <div className="activity-stats">
+                  <div className="activity-stat">
+                    <div className="activity-stat-val" style={{ color: 'var(--rose)' }}>{todayStats.visits}</div>
+                    <div className="activity-stat-label">Page Visits Today</div>
+                  </div>
+                  <div className="activity-stat">
+                    <div className="activity-stat-val" style={{ color: 'var(--green)' }}>{todayStats.signins}</div>
+                    <div className="activity-stat-label">Sign-ins Today</div>
+                  </div>
+                  <div className="activity-stat">
+                    <div className="activity-stat-val" style={{ color: 'var(--terra)' }}>{todayStats.unique_users}</div>
+                    <div className="activity-stat-label">Unique Users Today</div>
+                  </div>
+                </div>
+
+                {/* 7-day bar chart */}
+                <div className="section-card" style={{ marginBottom: 16 }}>
+                  <div className="section-card-header">
+                    <span>Activity — Last 7 Days</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', fontFamily: 'DM Sans, sans-serif' }}>
+                      {activityDays.reduce((s, d) => s + d.total, 0)} total events
+                    </span>
+                  </div>
+                  <div className="chart-wrap">
+                    {activityDays.length === 0 ? (
+                      <div className="empty-state" style={{ padding: '20px' }}>
+                        No activity data yet — activity is logged as users visit the dashboard
+                      </div>
+                    ) : (
+                      <>
+                        <div className="chart-bars">
+                          {activityDays.map((d, i) => (
+                            <div key={i} className="chart-bar-col">
+                              <div className="chart-bar-count">{d.total > 0 ? d.total : ''}</div>
+                              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                                {/* Stacked: signins on top, visits below */}
+                                {d.signins > 0 && (
+                                  <div style={{ width: '100%', height: `${Math.max((d.signins / maxActivity) * 100, 2)}px`, background: 'var(--green)', borderRadius: '4px 4px 0 0', transition: 'height 0.4s', minHeight: 2 }} title={`${d.signins} sign-ins`} />
+                                )}
+                                {d.visits > 0 && (
+                                  <div style={{ width: '100%', height: `${Math.max((d.visits / maxActivity) * 100, 2)}px`, background: 'linear-gradient(180deg, var(--rose), var(--terra))', borderRadius: d.signins > 0 ? '0' : '4px 4px 0 0', transition: 'height 0.4s', minHeight: 2 }} title={`${d.visits} page visits`} />
+                                )}
+                                {d.total === 0 && (
+                                  <div style={{ width: '100%', height: '4px', background: 'var(--border)', borderRadius: 4 }} />
+                                )}
+                              </div>
+                              <div className="chart-bar-label">{formatShortDate(d.date)}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: '0.68rem', color: 'var(--text-soft)' }}>
+                          <span><span style={{ display: 'inline-block', width: 8, height: 8, background: 'var(--green)', borderRadius: 2, marginRight: 4 }}></span>Sign-ins</span>
+                          <span><span style={{ display: 'inline-block', width: 8, height: 8, background: 'var(--rose)', borderRadius: 2, marginRight: 4 }}></span>Page visits</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent activity table */}
+                <div className="section-card">
+                  <div className="section-card-header">
+                    <span>Recent Activity</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', fontFamily: 'DM Sans, sans-serif' }}>Last 50 events</span>
+                  </div>
+                  {recentActivity.length === 0 ? (
+                    <div className="empty-state">No activity recorded yet</div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', padding: '10px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                        {['User', 'Event', 'Page', 'When'].map((h, i) => <div key={i} className="th">{h}</div>)}
+                      </div>
+                      {recentActivity.map((a, i) => (
+                        <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', padding: '10px 16px', borderBottom: i < recentActivity.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center', fontSize: '0.78rem' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.8rem' }}>{a.user_name || '—'}</div>
+                            <div style={{ color: 'var(--text-soft)', fontSize: '0.68rem' }}>{a.user_email}</div>
+                          </div>
+                          <div>
+                            <span className={`event-pill ${a.event_type}`}>
+                              {a.event_type === 'signin' ? '→ Sign in' : '◈ Page visit'}
+                            </span>
+                          </div>
+                          <div style={{ color: 'var(--text-mid)', fontSize: '0.75rem' }}>
+                            {a.page ? (PAGE_LABELS[a.page] || a.page) : '—'}
+                          </div>
+                          <div style={{ color: 'var(--text-soft)', fontSize: '0.72rem' }}>
+                            {timeAgo(a.created_at)}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </>
             )}
 
             {/* ── SIGNUP ACTIVITY ── */}
@@ -709,21 +1031,19 @@ export default function AdminPage() {
                 </div>
                 <div className="section-card">
                   <div className="section-card-header">Recent Signups</div>
-                  <div>
-                    {[...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20).map((u, i) => (
-                      <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderBottom: i < 19 ? '1px solid var(--border)' : 'none' }}>
-                        <div>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>{u.full_name || u.email}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)' }}>{u.email}</div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <span className="plan-badge" style={{ background: PLAN_COLORS[u.plan]?.bg, color: PLAN_COLORS[u.plan]?.color }}>{u.plan}</span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', minWidth: 80, textAlign: 'right' }}>{timeAgo(u.created_at)}</span>
-                          <button className="view-btn" onClick={() => { setSelectedUser(u); setActiveTab('users') }}>View</button>
-                        </div>
+                  {[...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20).map((u, i) => (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderBottom: i < 19 ? '1px solid var(--border)' : 'none' }}>
+                      <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>{u.full_name || u.email}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)' }}>{u.email}</div>
                       </div>
-                    ))}
-                  </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span className="plan-badge" style={{ background: PLAN_COLORS[u.plan]?.bg, color: PLAN_COLORS[u.plan]?.color }}>{u.plan}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', minWidth: 80, textAlign: 'right' }}>{timeAgo(u.created_at)}</span>
+                        <button className="view-btn" onClick={() => { setSelectedUser(u); setActiveTab('users') }}>View</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </>
             )}
@@ -770,7 +1090,7 @@ export default function AdminPage() {
             {activeTab === 'inactive' && (
               <>
                 <div className="info-box" style={{ marginBottom: 16 }}>
-                  These users have had no login activity for <strong>6+ months</strong>. You can send them a re-engagement email directly from here.
+                  These users have had no login activity for <strong>6+ months</strong>. You can send them a re-engagement email directly.
                 </div>
                 <div className="section-card">
                   <div className="section-card-header">
@@ -819,7 +1139,11 @@ export default function AdminPage() {
               <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--rose-soft)', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Serif Display, serif', fontSize: '1.1rem', color: 'var(--rose)', marginBottom: 12 }}>
                 {selectedUser.full_name?.[0]?.toUpperCase() || '?'}
               </div>
-              <div className="detail-name">{selectedUser.full_name || 'No name'}</div>
+              <div className="detail-name">
+                {selectedUser.full_name || 'No name'}
+                {selectedUser.is_master_admin && <span style={{ marginLeft: 8, fontSize: '0.6rem', background: '#fff3e8', color: '#c4896a', padding: '2px 8px', borderRadius: 10, border: '1px solid #f0d0b0', fontWeight: 800 }}>MASTER ADMIN</span>}
+                {selectedUser.is_admin && !selectedUser.is_master_admin && <span style={{ marginLeft: 8, fontSize: '0.6rem', background: 'var(--purple-soft)', color: 'var(--purple)', padding: '2px 8px', borderRadius: 10, border: '1px solid #d8ccf0', fontWeight: 800 }}>ADMIN</span>}
+              </div>
               <div className="detail-email">{selectedUser.email}</div>
             </div>
 
