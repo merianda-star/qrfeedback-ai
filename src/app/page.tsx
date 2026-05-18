@@ -6,14 +6,12 @@ import CodeRedirector from '@/components/CodeRedirector'
 export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Business enquiry modal state
   const [showModal, setShowModal] = useState(false)
   const [formData, setFormData] = useState({ name: '', business_name: '', email: '', business_type: 'restaurant', message: '' })
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
-  // Stripe checkout state
   const [checkingOut, setCheckingOut] = useState<'pro' | 'business' | null>(null)
 
   async function handleCheckout(plan: 'pro' | 'business') {
@@ -28,7 +26,6 @@ export default function HomePage() {
       if (json.url) {
         window.location.href = json.url
       } else if (json.error === 'Unauthorized') {
-        // Not logged in — send to register first
         window.location.href = '/auth/register?redirect=pricing'
       } else {
         alert(json.error || 'Something went wrong. Please try again.')
@@ -75,6 +72,57 @@ export default function HomePage() {
 
   return (
     <>
+      {/* ── JSON-LD Structured Data for SEO ─────────────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([
+          {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "QRFeedback.ai",
+            "url": "https://www.qrfeedback.ai",
+            "logo": "https://www.qrfeedback.ai/og-image.png",
+            "description": "AI-powered QR code feedback and review management platform for customer-facing businesses.",
+            "foundingDate": "2026",
+            "founder": { "@type": "Organization", "name": "Startekk LLC" },
+            "contactPoint": { "@type": "ContactPoint", "email": "info@qrfeedback.ai", "contactType": "customer support" }
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "QRFeedback.ai",
+            "url": "https://www.qrfeedback.ai",
+            "description": "Collect customer feedback via QR code. AI routes 4-5 star reviews to Google, captures complaints privately."
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "QRFeedback.ai",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "url": "https://www.qrfeedback.ai",
+            "description": "AI-powered QR code feedback collection with smart Google review routing. Setup in 2 minutes, no app required.",
+            "offers": [
+              { "@type": "Offer", "name": "Free Plan", "price": "0", "priceCurrency": "USD" },
+              { "@type": "Offer", "name": "Pro Plan", "price": "19", "priceCurrency": "USD" },
+              { "@type": "Offer", "name": "Business Plan", "price": "49", "priceCurrency": "USD" }
+            ]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+              { "@type": "Question", "name": "Do customers need to download an app?", "acceptedAnswer": { "@type": "Answer", "text": "No. Customers scan the QR code with their phone camera and the feedback form opens in their browser. No app, no sign-up, no friction." } },
+              { "@type": "Question", "name": "What happens to negative feedback?", "acceptedAnswer": { "@type": "Answer", "text": "Ratings of 1-3 stars are captured privately in your dashboard. You get an email alert with an AI-generated summary and a suggested response." } },
+              { "@type": "Question", "name": "How does Google Review routing work?", "acceptedAnswer": { "@type": "Answer", "text": "When a customer gives a 4 or 5 star rating, they are shown a thank-you screen with a button that opens your Google Review page directly." } },
+              { "@type": "Question", "name": "Can I use this for multiple locations?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can create separate forms for each location or branch, each with their own QR code and Google Review URL." } },
+              { "@type": "Question", "name": "When does AI processing happen?", "acceptedAnswer": { "@type": "Answer", "text": "Within 15 seconds of a negative response being submitted. You receive an email with AI classification, sentiment score, summary, and suggested response." } },
+              { "@type": "Question", "name": "Can I cancel anytime?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, anytime. If you cancel, you keep access until the end of your billing period, then your account downgrades to the free plan. No cancellation fees." } }
+            ]
+          }
+        ]) }}
+      />
+
       <Suspense fallback={null}>
         <CodeRedirector />
       </Suspense>
@@ -428,8 +476,8 @@ export default function HomePage() {
       )}
 
       {/* NAV */}
-      <nav className="nav">
-        <Link href="/" className="nav-logo">QRFeedback<span>.ai</span></Link>
+      <nav className="nav" aria-label="Main navigation">
+        <Link href="/" className="nav-logo" aria-label="QRFeedback.ai Home">QRFeedback<span>.ai</span></Link>
         <div className="nav-links">
           <a href="#how-it-works" className="nav-link">How it works</a>
           <a href="#pricing" className="nav-link">Pricing</a>
@@ -437,12 +485,12 @@ export default function HomePage() {
           <Link href="/auth/login" className="nav-link">Sign in</Link>
           <Link href="/auth/register" className="nav-cta">Start free</Link>
         </div>
-        <button className="nav-hamburger" onClick={() => setMobileMenuOpen(o => !o)} aria-label="Menu">
+        <button className="nav-hamburger" onClick={() => setMobileMenuOpen(o => !o)} aria-label="Open navigation menu" aria-expanded={mobileMenuOpen}>
           <span /><span /><span />
         </button>
       </nav>
 
-      <div className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
+      <div className={`mobile-menu ${mobileMenuOpen ? 'open' : ''}`} role="navigation" aria-label="Mobile navigation">
         <a href="#how-it-works" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>How it works</a>
         <a href="#pricing" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
         <a href="#faq" className="mobile-menu-link" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
@@ -451,7 +499,7 @@ export default function HomePage() {
       </div>
 
       {/* HERO */}
-      <section className="hero">
+      <section className="hero" aria-label="Hero">
         <div className="hero-inner">
           <div>
             <div className="hero-eyebrow"><span className="hero-eyebrow-dot"></span>AI-Powered Review Management</div>
@@ -467,7 +515,7 @@ export default function HomePage() {
               <span>No app required</span>
             </div>
           </div>
-          <div className="hero-visual">
+          <div className="hero-visual" aria-hidden="true">
             <div style={{ position: 'relative' }}>
               <div className="float-badge one"><span>⭐</span> 4.2x more Google reviews</div>
               <div className="hero-card">
@@ -493,17 +541,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="logos-strip">
+      <div className="logos-strip" aria-label="Key statistics">
         <span className="logos-label">Trusted by businesses</span>
         {[{ val: '4.2x', label: 'more Google reviews' }, { val: '94%', label: 'complaints captured' }, { val: '2 min', label: 'setup time' }, { val: '0 apps', label: 'required' }].map(s => (
           <div key={s.label} className="stat-pill"><strong>{s.val}</strong> {s.label}</div>
         ))}
       </div>
 
-      <section className="section" id="how-it-works">
+      <section className="section" id="how-it-works" aria-labelledby="how-it-works-title">
         <div className="section-inner">
           <div className="section-eyebrow">How it works</div>
-          <h2 className="section-title">Three steps to a better reputation</h2>
+          <h2 id="how-it-works-title" className="section-title">Three steps to a better reputation</h2>
           <p className="section-sub">From QR code to Google Review in under 60 seconds — for your customers.</p>
           <div className="steps-grid">
             {[
@@ -512,9 +560,9 @@ export default function HomePage() {
               { icon: '✦', num: '3', title: 'AI does the rest', desc: 'Happy customers go to Google Reviews. Unhappy ones are captured privately with AI analysis.' },
             ].map(s => (
               <div key={s.num} className="step">
-                <div className="step-num"><span>{s.icon}</span></div>
+                <div className="step-num" aria-hidden="true"><span>{s.icon}</span></div>
                 <div>
-                  <div className="step-title">{s.title}</div>
+                  <h3 className="step-title">{s.title}</h3>
                   <p className="step-desc">{s.desc}</p>
                 </div>
               </div>
@@ -523,31 +571,31 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="routing-section">
+      <section className="routing-section" aria-labelledby="routing-title">
         <div className="routing-inner">
           <div className="routing-eyebrow">Smart Review Routing</div>
-          <h2 className="routing-title">Your secret weapon against bad reviews</h2>
+          <h2 id="routing-title" className="routing-title">Your secret weapon against bad reviews</h2>
           <p className="routing-sub">Every rating is automatically routed — positive to Google, negative to you privately. Before it ever goes public.</p>
           <div className="routing-flow">
             <div className="flow-node highlight">
-              <div className="flow-node-icon">📱</div>
+              <div className="flow-node-icon" aria-hidden="true">📱</div>
               <div className="flow-node-title">Customer scans QR</div>
               <div className="flow-node-desc">On their own phone, no app needed</div>
             </div>
-            <div className="flow-arrow">→</div>
+            <div className="flow-arrow" aria-hidden="true">→</div>
             <div className="flow-node">
-              <div className="flow-node-icon">⭐</div>
+              <div className="flow-node-icon" aria-hidden="true">⭐</div>
               <div className="flow-node-title">Rates experience</div>
               <div className="flow-node-desc">Simple 1–5 star question</div>
             </div>
-            <div className="flow-arrow">→</div>
+            <div className="flow-arrow" aria-hidden="true">→</div>
             <div className="flow-split">
               <div className="flow-split-node positive">
-                <span className="flow-split-icon">🔗</span>
+                <span className="flow-split-icon" aria-hidden="true">🔗</span>
                 <div><div className="flow-split-title">4–5 stars → Google Review</div><div className="flow-split-desc">Opens Google Review page instantly</div></div>
               </div>
               <div className="flow-split-node negative">
-                <span className="flow-split-icon">🔒</span>
+                <span className="flow-split-icon" aria-hidden="true">🔒</span>
                 <div><div className="flow-split-title">1–3 stars → Private feedback</div><div className="flow-split-desc">Captured with AI analysis & alert sent to you</div></div>
               </div>
             </div>
@@ -555,10 +603,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section">
+      <section className="section" aria-labelledby="features-title">
         <div className="section-inner">
           <div className="section-eyebrow">Why QRFeedback.ai</div>
-          <h2 className="section-title">Everything your reputation needs</h2>
+          <h2 id="features-title" className="section-title">Everything your reputation needs</h2>
           <p className="section-sub">Built specifically for hospitality and service businesses that live and die by online reviews.</p>
           <div className="pillars-grid">
             {[
@@ -567,8 +615,8 @@ export default function HomePage() {
               { icon: '⬛', title: 'Simple Setup', desc: 'No app for customers. No hardware. Just a QR code you print and place. Your customers scan, rate, and leave — the whole flow takes under 60 seconds.' },
             ].map(p => (
               <div key={p.title} className="pillar">
-                <div className="pillar-icon">{p.icon}</div>
-                <div className="pillar-title">{p.title}</div>
+                <div className="pillar-icon" aria-hidden="true">{p.icon}</div>
+                <h3 className="pillar-title">{p.title}</h3>
                 <p className="pillar-desc">{p.desc}</p>
               </div>
             ))}
@@ -576,11 +624,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section" style={{ background: 'var(--ink)', position: 'relative', overflow: 'hidden' }}>
+      <section className="section" style={{ background: 'var(--ink)', position: 'relative', overflow: 'hidden' }} aria-labelledby="who-title">
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse at 50% 100%, rgba(176,92,82,0.12) 0%, transparent 60%)' }} />
         <div className="section-inner" style={{ position: 'relative', zIndex: 1 }}>
           <div className="section-eyebrow" style={{ textAlign: 'center', color: 'rgba(196,137,106,0.7)' }}>Who it's for</div>
-          <h2 className="section-title" style={{ textAlign: 'center', color: '#f5ede8', marginBottom: 10 }}>Built for every customer-facing business</h2>
+          <h2 id="who-title" className="section-title" style={{ textAlign: 'center', color: '#f5ede8', marginBottom: 10 }}>Built for every customer-facing business</h2>
           <p style={{ textAlign: 'center', fontSize: '0.95rem', color: 'rgba(245,237,232,0.5)', lineHeight: 1.7, maxWidth: 520, margin: '0 auto 44px' }}>Whether you run one location or fifty, QRFeedback.ai fits your workflow in under 2 minutes.</p>
           <div className="biz-grid">
             {[
@@ -594,9 +642,9 @@ export default function HomePage() {
                 onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = 'rgba(255,255,255,0.07)'; el.style.transform = 'translateY(-4px)'; el.style.borderColor = 'rgba(196,137,106,0.3)' }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = 'rgba(255,255,255,0.04)'; el.style.transform = 'translateY(0)'; el.style.borderColor = 'rgba(255,255,255,0.08)' }}
               >
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: b.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', marginBottom: 12 }}>{b.icon}</div>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: b.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', marginBottom: 12 }} aria-hidden="true">{b.icon}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                  <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '0.95rem', color: '#f5ede8' }}>{b.title}</div>
+                  <h3 style={{ fontFamily: 'DM Serif Display, serif', fontSize: '0.95rem', color: '#f5ede8' }}>{b.title}</h3>
                   {b.tag && <span style={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '2px 8px', borderRadius: 20, background: 'rgba(176,92,82,0.3)', color: '#f0c4b8', border: '1px solid rgba(176,92,82,0.3)', whiteSpace: 'nowrap' }}>{b.tag}</span>}
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'rgba(245,237,232,0.5)', lineHeight: 1.6 }}>{b.desc}</p>
@@ -607,10 +655,10 @@ export default function HomePage() {
       </section>
 
       {/* PRICING */}
-      <section className="pricing-section" id="pricing">
+      <section className="pricing-section" id="pricing" aria-labelledby="pricing-title">
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div className="section-eyebrow" style={{ textAlign: 'center' }}>Pricing</div>
-          <h2 className="section-title" style={{ textAlign: 'center', marginBottom: 8 }}>Simple, honest pricing</h2>
+          <h2 id="pricing-title" className="section-title" style={{ textAlign: 'center', marginBottom: 8 }}>Simple, honest pricing</h2>
           <p style={{ textAlign: 'center', fontSize: '0.92rem', color: 'var(--text-mid)', marginBottom: 44 }}>Start free. Upgrade when you're ready.</p>
           <div className="pricing-grid">
 
@@ -622,7 +670,7 @@ export default function HomePage() {
               <div className="price-divider"></div>
               <ul className="price-features">
                 {['3 feedback forms', '50 responses/month', 'Smart review routing', 'Basic QR codes', 'Email support'].map(f => (
-                  <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>
+                  <li key={f} className="price-feature"><span className="price-feature-dot" aria-hidden="true"></span>{f}</li>
                 ))}
               </ul>
               <Link href="/auth/register" className="price-btn">Get started free</Link>
@@ -636,7 +684,7 @@ export default function HomePage() {
               <div className="price-divider"></div>
               <ul className="price-features">
                 {['Unlimited forms', '1,000 responses/month', 'AI complaint analysis', 'Custom QR designs', 'Weekly AI email digest', 'Advanced analytics', 'CSV export'].map(f => (
-                  <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>
+                  <li key={f} className="price-feature"><span className="price-feature-dot" aria-hidden="true"></span>{f}</li>
                 ))}
               </ul>
               <Link href="/auth/register" className="price-btn">Start Pro free trial</Link>
@@ -658,7 +706,7 @@ export default function HomePage() {
               <div className="price-divider"></div>
               <ul className="price-features">
                 {['Everything in Pro', 'Unlimited responses', 'White-label forms', 'Custom branded QR codes', 'Remove branding', 'Priority support'].map(f => (
-                  <li key={f} className="price-feature"><span className="price-feature-dot"></span>{f}</li>
+                  <li key={f} className="price-feature"><span className="price-feature-dot" aria-hidden="true"></span>{f}</li>
                 ))}
               </ul>
               <button className="price-btn pop" onClick={() => setShowModal(true)}>Contact for Business trial</button>
@@ -675,10 +723,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="section" id="faq">
+      <section className="section" id="faq" aria-labelledby="faq-title">
         <div className="section-inner">
           <div className="section-eyebrow">FAQ</div>
-          <h2 className="section-title" style={{ marginBottom: 32 }}>Common questions</h2>
+          <h2 id="faq-title" className="section-title" style={{ marginBottom: 32 }}>Common questions</h2>
           <div className="faq-grid">
             {[
               { q: 'Do customers need to download an app?', a: 'No. Customers scan the QR code with their phone camera and the feedback form opens in their browser. No app, no sign-up, no friction.' },
@@ -689,7 +737,7 @@ export default function HomePage() {
               { q: 'Can I cancel anytime?', a: 'Yes, anytime. If you cancel, you keep access until the end of your billing period, then your account downgrades to the free plan. No cancellation fees.' },
             ].map(f => (
               <div key={f.q} className="faq-item">
-                <div className="faq-q">{f.q}</div>
+                <h3 className="faq-q">{f.q}</h3>
                 <p className="faq-a">{f.a}</p>
               </div>
             ))}
@@ -697,8 +745,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="cta-section">
-        <h2 className="cta-title">Ready to protect your<br /><em>online reputation?</em></h2>
+      <section className="cta-section" aria-labelledby="cta-title">
+        <h2 id="cta-title" className="cta-title">Ready to protect your<br /><em>online reputation?</em></h2>
         <p className="cta-sub">Join businesses already catching complaints before they go public.</p>
         <div className="cta-actions">
           <Link href="/auth/register" className="cta-btn-primary">Start Free — No Card Required →</Link>
@@ -708,11 +756,11 @@ export default function HomePage() {
 
       <footer className="footer">
         <div className="footer-logo">QRFeedback<span>.ai</span></div>
-        <div className="footer-links">
+        <nav className="footer-links" aria-label="Footer navigation">
           <Link href="/privacy" className="footer-link">Privacy Policy</Link>
           <Link href="/terms" className="footer-link">Terms of Service</Link>
           <Link href="/contact" className="footer-link">Contact</Link>
-        </div>
+        </nav>
         <div className="footer-copy">© 2026 Startekk LLC. All rights reserved.</div>
       </footer>
     </>
