@@ -36,6 +36,9 @@ export const metadata: Metadata = {
     'feedback collection software',
     'restaurant feedback QR',
     'negative review management',
+    'qrfeedback',
+    'qr code',
+    'feedback',
   ],
 
   authors: [{ name: 'Startekk LLC', url: 'https://www.qrfeedback.ai' }],
