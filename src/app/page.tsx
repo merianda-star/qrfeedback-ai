@@ -92,7 +92,7 @@ export default function HomePage() {
             "@type": "WebSite",
             "name": "QRFeedback.ai",
             "url": "https://www.qrfeedback.ai",
-            "description": "Collect customer feedback via QR code. AI routes 4-5 star reviews to Google, captures complaints privately."
+            "description": "Collect customer feedback via QR code. AI helps businesses understand customer sentiment and improve their service."
           },
           {
             "@context": "https://schema.org",
@@ -535,7 +535,7 @@ export default function HomePage() {
                   <div className="hero-stat"><div className="hero-stat-val">4.6</div><div className="hero-stat-label">Avg Rating</div></div>
                 </div>
               </div>
-              <div className="float-badge two"><span>🔒</span> 8 complaints captured privately</div>
+              <div className="float-badge two"><span>🔒</span> 8 feedback responses captured privately</div>
             </div>
           </div>
         </div>
@@ -543,7 +543,7 @@ export default function HomePage() {
 
       <div className="logos-strip" aria-label="Key statistics">
         <span className="logos-label">Trusted by businesses</span>
-        {[{ val: '4.2x', label: 'more Google reviews' }, { val: '94%', label: 'complaints captured' }, { val: '2 min', label: 'setup time' }, { val: '0 apps', label: 'required' }].map(s => (
+        {[{ val: '4.2x', label: 'more Google reviews' }, { val: '94%', label: 'feedback response rate' }, { val: '2 min', label: 'setup time' }, { val: '0 apps', label: 'required' }].map(s => (
           <div key={s.label} className="stat-pill"><strong>{s.val}</strong> {s.label}</div>
         ))}
       </div>
@@ -557,7 +557,7 @@ export default function HomePage() {
             {[
               { icon: '📋', num: '1', title: 'Create your form', desc: 'Build a feedback form in 2 minutes. Add your Google Review link and customise your questions.' },
               { icon: '⬛', num: '2', title: 'Print your QR code', desc: 'Download and display your QR code on tables, receipts, or packaging. No app needed to scan.' },
-              { icon: '✦', num: '3', title: 'AI does the rest', desc: 'Happy customers go to Google Reviews. Unhappy ones are captured privately with AI analysis.' },
+              { icon: '✦', num: '3', title: 'AI does the rest', desc: 'Satisfied customers are invited to share their experience publicly. Detailed feedback is captured privately with AI analysis so you can act on it.' },
             ].map(s => (
               <div key={s.num} className="step">
                 <div className="step-num" aria-hidden="true"><span>{s.icon}</span></div>
@@ -575,7 +575,7 @@ export default function HomePage() {
         <div className="routing-inner">
           <div className="routing-eyebrow">Smart Review Routing</div>
           <h2 id="routing-title" className="routing-title">Your secret weapon against bad reviews</h2>
-          <p className="routing-sub">Every rating is automatically routed — positive to Google, negative to you privately. Before it ever goes public.</p>
+          <p className="routing-sub">Every customer interaction is an opportunity to improve. Satisfied customers can share their experience publicly, while detailed feedback helps you improve privately.</p>
           <div className="routing-flow">
             <div className="flow-node highlight">
               <div className="flow-node-icon" aria-hidden="true">📱</div>
@@ -592,11 +592,11 @@ export default function HomePage() {
             <div className="flow-split">
               <div className="flow-split-node positive">
                 <span className="flow-split-icon" aria-hidden="true">🔗</span>
-                <div><div className="flow-split-title">4–5 stars</div><div className="flow-split-desc">Customers share feedback, happy customers are invited to share their experience publicly</div></div>
+                <div><div className="flow-split-title">4–5 stars</div><div className="flow-split-desc">Customers are invited to share their experience publicly</div></div>
               </div>
               <div className="flow-split-node negative">
                 <span className="flow-split-icon" aria-hidden="true">🔒</span>
-                <div><div className="flow-split-title">1–3 stars</div><div className="flow-split-desc">Captured with AI analysis & alert sent to you</div></div>
+                <div><div className="flow-split-title">1–3 stars</div><div className="flow-split-desc">Detailed feedback captured privately with AI analysis & alert sent to you</div></div>
               </div>
             </div>
           </div>
@@ -610,7 +610,7 @@ export default function HomePage() {
           <p className="section-sub">Built specifically for hospitality and service businesses that live and die by online reviews.</p>
           <div className="pillars-grid">
             {[
-              { icon: '🛡', title: 'Review Protection', desc: 'Intercept unhappy customers before they go to Google, Yelp, or TripAdvisor. Capture their feedback privately and respond before it becomes a public problem.' },
+              { icon: '🛡', title: 'Review Protection', desc: 'Hear directly from unhappy customers before they move on. Capture detailed feedback privately and respond quickly — turning a bad experience into a resolved one.' },
               { icon: '✦', title: 'AI Insights', desc: 'Every negative response is automatically classified, summarised, and scored for sentiment. You get a suggested response — all within 15 seconds of submission.' },
               { icon: '⬛', title: 'Simple Setup', desc: 'No app for customers. No hardware. Just a QR code you print and place. Your customers scan, rate, and leave — the whole flow takes under 60 seconds.' },
             ].map(p => (
@@ -730,7 +730,7 @@ export default function HomePage() {
           <div className="faq-grid">
             {[
               { q: 'Do customers need to download an app?', a: 'No. Customers scan the QR code with their phone camera and the feedback form opens in their browser. No app, no sign-up, no friction.' },
-              { q: 'What happens to negative feedback?', a: 'Ratings of 1–3 stars are captured privately in your dashboard. You get an email alert with an AI-generated summary and a suggested response.' },
+              { q: 'What happens to negative feedback?', a: 'Detailed feedback from customers is captured privately in your dashboard. You get an email alert with an AI-generated summary and a suggested response so you can follow up directly.' },
               { q: 'How does Google Review routing work?', a: 'When a customer gives a 4 or 5 star rating, they are shown a thank-you screen with a button that opens your Google Review page directly.' },
               { q: 'Can I use this for multiple locations?', a: 'Yes. You can create separate forms for each location or branch, each with their own QR code and Google Review URL.' },
               { q: 'When does AI processing happen?', a: 'Within 15 seconds of a negative response being submitted. You receive an email with AI classification, sentiment score, summary, and suggested response.' },
@@ -747,7 +747,7 @@ export default function HomePage() {
 
       <section className="cta-section" aria-labelledby="cta-title">
         <h2 id="cta-title" className="cta-title">Ready to protect your<br /><em>online reputation?</em></h2>
-        <p className="cta-sub">Join businesses already catching complaints before they go public.</p>
+        <p className="cta-sub">Join businesses already using customer feedback to improve their service and reputation.</p>
         <div className="cta-actions">
           <Link href="/auth/register" className="cta-btn-primary">Start Free — No Card Required →</Link>
           <a href="#how-it-works" className="cta-btn-secondary">See how it works</a>
