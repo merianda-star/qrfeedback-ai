@@ -592,11 +592,11 @@ export default function HomePage() {
             <div className="flow-split">
               <div className="flow-split-node positive">
                 <span className="flow-split-icon" aria-hidden="true">🔗</span>
-                <div><div className="flow-split-title">4–5 stars → Google Review</div><div className="flow-split-desc">Opens Google Review page instantly</div></div>
+                <div><div className="flow-split-title">4–5 stars</div><div className="flow-split-desc">Customers share feedback, happy customers are invited to share their experience publicly</div></div>
               </div>
               <div className="flow-split-node negative">
                 <span className="flow-split-icon" aria-hidden="true">🔒</span>
-                <div><div className="flow-split-title">1–3 stars → Private feedback</div><div className="flow-split-desc">Captured with AI analysis & alert sent to you</div></div>
+                <div><div className="flow-split-title">1–3 stars</div><div className="flow-split-desc">Captured with AI analysis & alert sent to you</div></div>
               </div>
             </div>
           </div>
