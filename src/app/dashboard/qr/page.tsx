@@ -9,6 +9,7 @@ type Form = {
   id: string
   title: string
   location_name: string | null
+  phone_number: string | null
   response_count?: number
   avg_rating?: number
 }
@@ -160,7 +161,7 @@ async function generateQRPreview(
 
 async function generatePrintCard(
   url: string, config: QRConfig, plan: string, businessName: string,
-  formTitle: string, locationName: string | null, logoUrl: string | null
+  formTitle: string, locationName: string | null, phoneNumber: string | null, logoUrl: string | null
 ): Promise<HTMLCanvasElement> {
   const sc = 3
   const W  = 300 * sc   // 900px wide
@@ -178,6 +179,11 @@ async function generatePrintCard(
   const MID  = '#7a5a56'
   const SOFT = '#e2cdc9'
   const WHITE= '#ffffff'
+
+  // Pre-blended solid colours for the dark header (avoids rgba print banding)
+  // Formula: bg_channel + (255 - bg_channel) * alpha  |  bg = #2a1f1d (42,31,29)
+  const HDR_DIVIDER  = '#464040'   // rgba(255,255,255,0.20) over DARK
+  const HDR_WATERMARK = '#5a4f4d'  // rgba(255,255,255,0.28) over DARK
 
   // ── Rounded-rect helper (fill only, no stroke) ────────────────────────────
   function fillRR(x: number, y: number, w: number, h: number,
@@ -228,15 +234,17 @@ async function generatePrintCard(
   ctx.fillText('Your voice shapes our service', W / 2, 90 * sc)
 
   // Divider: left line · dot · right line
+  // FIXED: solid pre-blended colour instead of rgba (prevents print banding)
   const dPad = 55 * sc
   const dY   = 99 * sc
-  ctx.fillStyle = 'rgba(255,255,255,0.2)'
+  ctx.fillStyle = HDR_DIVIDER
   ctx.fillRect(dPad, dY, W/2 - dPad - 10*sc, 1*sc)
   ctx.fillRect(W/2 + 10*sc, dY, W/2 - dPad - 10*sc, 1*sc)
   fillCircle(W/2, dY, 2.5*sc, GOLD)
 
-  // QRFEEDBACK.AI
-  ctx.fillStyle = 'rgba(255,255,255,0.28)'
+  // QRFEEDBACK.AI watermark
+  // FIXED: solid pre-blended colour instead of rgba (prevents print banding)
+  ctx.fillStyle = HDR_WATERMARK
   ctx.font = `${9 * sc}px Arial, sans-serif`
   ctx.letterSpacing = `${2 * sc}px`
   ctx.textAlign = 'center'
@@ -327,6 +335,16 @@ async function generatePrintCard(
       } else lLine = t
     }
     ctx.fillText(lLine, W/2, curY)
+    curY += 10 * sc
+  }
+
+  // Phone number — sits directly below address
+  if (phoneNumber) {
+    ctx.fillStyle = MID
+    ctx.font = `${6 * sc}px Georgia, serif`
+    ctx.textAlign = 'center'
+    ctx.fillText(phoneNumber, W / 2, curY)
+    curY += 10 * sc
   }
 
   // Free plan — powered by at bottom
@@ -373,7 +391,7 @@ export default function QRCodesPage() {
     setBusinessName(profile?.business_name || 'My Business')
     setLogoUrl(userPlan === 'business' ? (profile?.logo_url || null) : null)
     const { data: formsData } = await supabase
-      .from('forms').select('id, title, location_name').eq('user_id', user.id)
+      .from('forms').select('id, title, location_name, phone_number').eq('user_id', user.id)
     if (!formsData || formsData.length === 0) { setLoading(false); return }
     const formIds = formsData.map((f: any) => f.id)
     const { data: responses } = await supabase
@@ -387,7 +405,7 @@ export default function QRCodesPage() {
       ...f,
       response_count: countMap[f.id]?.length || 0,
       avg_rating: countMap[f.id]?.length
-        ? parseFloat((countMap[f.id].reduce((s, r) => s + r, 0) / countMap[f.id].length).toFixed(1))
+        ? parseFloat((countMap[f.id].reduce((s: number, r: number) => s + r, 0) / countMap[f.id].length).toFixed(1))
         : null,
     }))
     setForms(enriched)
@@ -432,7 +450,7 @@ export default function QRCodesPage() {
       const config = configs[form.id] || DEFAULT_CONFIG
       const url = getFeedbackUrl(form.id)
       const cardCanvas = await generatePrintCard(
-        url, config, plan, businessName, form.title, form.location_name, logoUrl
+        url, config, plan, businessName, form.title, form.location_name, form.phone_number ?? null, logoUrl
       )
       const imgData = cardCanvas.toDataURL('image/png')
       const pw = window.open('', '_blank', 'width=520,height=720')
@@ -570,7 +588,8 @@ export default function QRCodesPage() {
         .qr-card-top{padding:20px;display:flex;flex-direction:column;align-items:center}
         .qr-canvas-wrap{background:#fff;border-radius:10px;border:1px solid var(--border);padding:10px;display:inline-flex;margin-bottom:14px;box-shadow:0 2px 12px rgba(42,31,29,0.07)}
         .qr-form-name{font-family:'DM Serif Display',serif;font-size:0.9rem;color:var(--text);text-align:center;margin-bottom:4px}
-        .qr-location{font-size:0.7rem;color:var(--text-soft);text-align:center;margin-bottom:10px}
+        .qr-location{font-size:0.7rem;color:var(--text-soft);text-align:center;margin-bottom:4px}
+        .qr-phone{font-size:0.7rem;color:var(--text-soft);text-align:center;margin-bottom:10px}
         .qr-stats{display:flex;gap:16px;margin-bottom:14px}
         .qr-stat{text-align:center}
         .qr-stat-val{font-size:1rem;font-weight:700;color:var(--text);font-family:'DM Serif Display',serif}
@@ -668,6 +687,7 @@ export default function QRCodesPage() {
                     </div>
                     <div className="qr-form-name">{form.title}</div>
                     {form.location_name && <div className="qr-location">📍 {form.location_name}</div>}
+                    {form.phone_number && <div className="qr-phone">📞 {form.phone_number}</div>}
                     <div className="qr-stats">
                       <div className="qr-stat">
                         <div className="qr-stat-val">{form.response_count ?? 0}</div>

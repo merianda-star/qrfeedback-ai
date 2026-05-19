@@ -9,6 +9,7 @@ import Link from 'next/link'
 type Form = {
   google_review_url: string | null
   location_name: string | null
+  phone_number: string | null
   id: string
   title: string
   description: string
@@ -30,6 +31,7 @@ export default function FormBuilderPage() {
   const [redirectOnPositive, setRedirectOnPositive] = useState(true)
   const [googleUrl, setGoogleUrl] = useState('')
   const [locationName, setLocationName] = useState('')
+  const [phone, setPhone] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -53,6 +55,7 @@ export default function FormBuilderPage() {
       setRedirectOnPositive(formData.redirect_on_positive)
       setGoogleUrl(formData.google_review_url || '')
       setLocationName(formData.location_name || '')
+      setPhone(formData.phone_number || '')
     }
     setLoading(false)
   }
@@ -104,6 +107,7 @@ export default function FormBuilderPage() {
       redirect_on_positive: redirectOnPositive,
       google_review_url: googleUrl,
       location_name: locationName,
+      phone_number: phone,
     }).eq('id', params.id)
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 3000)
@@ -312,7 +316,23 @@ export default function FormBuilderPage() {
           <div className="field-row">
             <div className="form-group">
               <label className="form-label">Location Name</label>
-              <input type="text" className="form-input" placeholder="e.g. 123 MG Road, Mysuru" value={locationName} onChange={e => setLocationName(e.target.value)} />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. 123 MG Road, Mysuru"
+                value={locationName}
+                onChange={e => setLocationName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Phone Number</label>
+              <input
+                type="tel"
+                className="form-input"
+                placeholder="e.g. +91 98765 43210"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+              />
             </div>
           </div>
 
