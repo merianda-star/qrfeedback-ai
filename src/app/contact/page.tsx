@@ -337,7 +337,6 @@ export default function ContactPage() {
           <Link href="/privacy" className="footer-link">Privacy Policy</Link>
           <Link href="/terms" className="footer-link">Terms of Service</Link>
           <Link href="/cookies" className="footer-link">Cookie Policy</Link>
-          <Link href="/disclaimer" className="footer-link">Disclaimer</Link>
           <Link href="/accessibility" className="footer-link">Accessibility</Link>
           <Link href="/contact" className="footer-link">Contact</Link>
         </div>
