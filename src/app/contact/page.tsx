@@ -202,7 +202,7 @@ export default function ContactPage() {
               <div className="contact-card-icon">💬</div>
               <div className="contact-card-title">General Enquiries</div>
               <div className="contact-card-desc">Questions about features, pricing, or how QRFeedback.ai works.</div>
-              <a href="mailto:hello@qrfeedback.ai" className="contact-card-link">hello@qrfeedback.ai →</a>
+              <a href="mailto:info@qrfeedback.ai" className="contact-card-link">info@qrfeedback.ai →</a>
             </div>
             <div className="contact-card">
               <div className="contact-card-icon">🛠</div>
@@ -238,7 +238,7 @@ export default function ContactPage() {
               <span className="contact-info-icon">⏱</span>
               <div>
                 <div className="contact-info-label">Response Time</div>
-                <div className="contact-info-val">Within 1 business day</div>
+                <div className="contact-info-val">Within a week</div>
               </div>
             </div>
           </div>
