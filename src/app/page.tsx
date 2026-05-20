@@ -759,6 +759,9 @@ export default function HomePage() {
         <nav className="footer-links" aria-label="Footer navigation">
           <Link href="/privacy" className="footer-link">Privacy Policy</Link>
           <Link href="/terms" className="footer-link">Terms of Service</Link>
+          <Link href="/cookies" className="footer-link">Cookie Policy</Link>
+          <Link href="/disclaimer" className="footer-link">Disclaimer</Link>
+          <Link href="/accessibility" className="footer-link">Accessibility</Link>
           <Link href="/contact" className="footer-link">Contact</Link>
         </nav>
         <div className="footer-copy">© 2026 Startekk LLC. All rights reserved.</div>

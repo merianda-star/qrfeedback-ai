@@ -26,8 +26,13 @@ export default function CookieBanner() {
     localStorage.setItem('qrf_cookie_consent', 'accepted')
     setConsent('accepted')
     setVisible(false)
-    // TODO: initialise GA4 here when Measurement ID is added
-    // e.g. window.gtag?.('consent', 'update', { analytics_storage: 'granted' })
+    // ── Activate GA4 analytics when user accepts ─────────────────────────
+    // When you uncomment the GA4 scripts in src/app/layout.tsx, also
+    // uncomment the two lines below so GA4 fires only after consent:
+    //
+    // window.gtag?.('consent', 'update', { analytics_storage: 'granted' })
+    // window.gtag?.('event', 'page_view', { page_path: window.location.pathname })
+    // ─────────────────────────────────────────────────────────────────────
   }
 
   const handleDecline = () => {
