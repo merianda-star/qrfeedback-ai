@@ -48,6 +48,7 @@ export default function ContactPage() {
         html { scroll-behavior: smooth; }
         body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
+        /* ── Nav ── */
         .nav {
           position: fixed; top: 0; left: 0; right: 0; z-index: 100;
           padding: 0 6vw; height: 64px;
@@ -60,6 +61,7 @@ export default function ContactPage() {
         .nav-back { font-size: 0.82rem; color: var(--text-soft); text-decoration: none; display: flex; align-items: center; gap: 6px; transition: color 0.2s; }
         .nav-back:hover { color: var(--rose); }
 
+        /* ── Hero ── */
         .page-hero {
           padding: 120px 6vw 60px;
           background: linear-gradient(135deg, var(--bg) 0%, var(--rose-soft) 100%);
@@ -80,16 +82,18 @@ export default function ContactPage() {
         }
         .page-sub { font-size: 1rem; color: var(--text-mid); max-width: 480px; margin: 0 auto; line-height: 1.7; }
 
+        /* ── Layout ── */
         .content-wrap {
-          max-width: 900px; margin: 0 auto;
+          max-width: 960px; margin: 0 auto;
           padding: 64px 6vw 96px;
-          display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;
+          display: grid; grid-template-columns: 1fr 1.1fr; gap: 48px; align-items: start;
         }
 
-        .contact-cards { display: flex; flex-direction: column; gap: 16px; }
+        /* ── Contact cards ── */
+        .contact-cards { display: flex; flex-direction: column; gap: 14px; }
         .contact-card {
           background: var(--surface); border: 1px solid var(--border);
-          border-radius: 12px; padding: 22px 24px;
+          border-radius: 12px; padding: 20px 22px;
           transition: all 0.2s; position: relative; overflow: hidden;
         }
         .contact-card::before {
@@ -99,12 +103,9 @@ export default function ContactPage() {
         }
         .contact-card:hover { box-shadow: 0 6px 24px rgba(176,92,82,0.1); transform: translateY(-2px); }
         .contact-card:hover::before { opacity: 1; }
-        .contact-card-icon { font-size: 1.4rem; margin-bottom: 10px; }
-        .contact-card-title {
-          font-family: 'DM Serif Display', serif;
-          font-size: 0.95rem; color: var(--text); margin-bottom: 6px;
-        }
-        .contact-card-desc { font-size: 0.8rem; color: var(--text-soft); line-height: 1.6; margin-bottom: 12px; }
+        .contact-card-icon { font-size: 1.3rem; margin-bottom: 8px; }
+        .contact-card-title { font-family: 'DM Serif Display', serif; font-size: 0.95rem; color: var(--text); margin-bottom: 5px; }
+        .contact-card-desc { font-size: 0.8rem; color: var(--text-soft); line-height: 1.6; margin-bottom: 10px; }
         .contact-card-link {
           font-size: 0.82rem; font-weight: 600; color: var(--rose);
           text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
@@ -112,36 +113,36 @@ export default function ContactPage() {
         }
         .contact-card-link:hover { gap: 8px; }
 
-        .contact-info { margin-top: 28px; }
+        /* ── Company info ── */
+        .contact-info { margin-top: 26px; }
         .contact-info-title {
           font-family: 'DM Serif Display', serif;
-          font-size: 0.85rem; color: var(--text-soft);
+          font-size: 0.78rem; color: var(--text-soft);
           text-transform: uppercase; letter-spacing: 1px;
           margin-bottom: 14px;
         }
         .contact-info-item {
           display: flex; align-items: flex-start; gap: 12px;
-          padding: 12px 0; border-bottom: 1px solid var(--border);
+          padding: 11px 0; border-bottom: 1px solid var(--border);
         }
         .contact-info-item:last-child { border-bottom: none; }
         .contact-info-icon { font-size: 1rem; margin-top: 1px; flex-shrink: 0; }
-        .contact-info-label { font-size: 0.72rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-        .contact-info-val { font-size: 0.85rem; color: var(--text); font-weight: 500; }
+        .contact-info-label { font-size: 0.68rem; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+        .contact-info-val { font-size: 0.84rem; color: var(--text); font-weight: 500; line-height: 1.5; }
         .contact-info-val a { color: var(--rose); text-decoration: none; }
         .contact-info-val a:hover { text-decoration: underline; }
 
+        /* ── Form card ── */
         .form-card {
           background: var(--surface); border: 1px solid var(--border);
           border-radius: 14px; padding: 32px;
           box-shadow: 0 4px 24px rgba(42,31,29,0.06);
         }
-        .form-title {
-          font-family: 'DM Serif Display', serif;
-          font-size: 1.2rem; color: var(--text); margin-bottom: 6px;
-        }
+        .form-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--text); margin-bottom: 6px; }
         .form-sub { font-size: 0.8rem; color: var(--text-soft); margin-bottom: 24px; line-height: 1.6; }
-        .form-group { margin-bottom: 16px; }
-        .form-label { display: block; font-size: 0.7rem; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .form-group { margin-bottom: 14px; }
+        .form-label { display: block; font-size: 0.68rem; font-weight: 700; color: var(--text-mid); margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
         .form-input, .form-select, .form-textarea {
           width: 100%; padding: 10px 13px;
           border: 1.5px solid var(--border); border-radius: 8px;
@@ -154,7 +155,8 @@ export default function ContactPage() {
         }
         .form-input::placeholder, .form-textarea::placeholder { color: #c9aba6; }
         .form-textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
-        .form-select { cursor: pointer; appearance: none;
+        .form-select {
+          cursor: pointer; appearance: none;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23b09490' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
           background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px;
         }
@@ -163,23 +165,34 @@ export default function ContactPage() {
           background: var(--rose); color: #fff; font-size: 0.88rem; font-weight: 600;
           cursor: pointer; font-family: 'DM Sans', sans-serif;
           transition: all 0.2s; box-shadow: 0 3px 12px rgba(176,92,82,0.25);
-          margin-top: 4px;
+          margin-top: 6px;
         }
         .submit-btn:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); box-shadow: 0 5px 16px rgba(176,92,82,0.3); }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .form-note { font-size: 0.72rem; color: var(--text-soft); text-align: center; margin-top: 10px; line-height: 1.5; }
+        .form-note { font-size: 0.7rem; color: var(--text-soft); text-align: center; margin-top: 10px; line-height: 1.5; }
+        .form-note a { color: var(--rose); text-decoration: none; }
+        .form-note a:hover { text-decoration: underline; }
 
-        @media (max-width: 768px) {
-          .content-wrap { grid-template-columns: 1fr; }
-        }
+        /* ── Success state ── */
+        .success-state { text-align: center; padding: 32px 0; }
+        .success-icon { font-size: 2.8rem; margin-bottom: 12px; }
+        .success-title { font-family: 'DM Serif Display, serif'; font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+        .success-desc { font-size: 0.82rem; color: var(--text-soft); line-height: 1.6; }
 
+        /* ── Footer ── */
         .footer { padding: 32px 6vw; background: var(--ink); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 1px solid rgba(255,255,255,0.06); }
         .footer-logo { font-family: 'DM Serif Display', serif; font-size: 1rem; color: rgba(245,237,232,0.6); }
         .footer-logo span { color: var(--rose); }
-        .footer-links { display: flex; gap: 20px; }
+        .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
         .footer-link { font-size: 0.78rem; color: rgba(245,237,232,0.35); text-decoration: none; transition: color 0.2s; }
         .footer-link:hover { color: rgba(245,237,232,0.7); }
         .footer-copy { font-size: 0.72rem; color: rgba(245,237,232,0.25); }
+
+        @media (max-width: 768px) {
+          .content-wrap { grid-template-columns: 1fr; gap: 32px; }
+          .form-row { grid-template-columns: 1fr; }
+          .footer { flex-direction: column; align-items: flex-start; }
+        }
       `}</style>
 
       <nav className="nav">
@@ -190,12 +203,12 @@ export default function ContactPage() {
       <div className="page-hero">
         <div className="page-eyebrow">Get in touch</div>
         <h1 className="page-title">Contact Us</h1>
-        <p className="page-sub">Have a question, feedback, or need help? We'd love to hear from you. We typically respond within one business day.</p>
+        <p className="page-sub">Have a question, feedback, or need help? We&apos;d love to hear from you. We typically respond within one business day.</p>
       </div>
 
       <div className="content-wrap">
 
-        {/* Left — contact info + cards */}
+        {/* ── Left — contact info ── */}
         <div>
           <div className="contact-cards">
             <div className="contact-card">
@@ -207,63 +220,85 @@ export default function ContactPage() {
             <div className="contact-card">
               <div className="contact-card-icon">🛠</div>
               <div className="contact-card-title">Technical Support</div>
-              <div className="contact-card-desc">Having issues with the platform? We'll help you get sorted.</div>
+              <div className="contact-card-desc">Having issues with the platform? We&apos;ll help you get sorted.</div>
               <a href="mailto:support@qrfeedback.ai" className="contact-card-link">support@qrfeedback.ai →</a>
             </div>
             <div className="contact-card">
               <div className="contact-card-icon">💳</div>
-              <div className="contact-card-title">Billing & Accounts</div>
+              <div className="contact-card-title">Billing &amp; Accounts</div>
               <div className="contact-card-desc">Questions about your subscription, invoices, or cancellations.</div>
               <a href="mailto:billing@qrfeedback.ai" className="contact-card-link">billing@qrfeedback.ai →</a>
             </div>
+            <div className="contact-card">
+              <div className="contact-card-icon">🔒</div>
+              <div className="contact-card-title">Privacy &amp; Data Requests</div>
+              <div className="contact-card-desc">GDPR rights, data deletion requests, or privacy concerns.</div>
+              <a href="mailto:privacy@qrfeedback.ai" className="contact-card-link">privacy@qrfeedback.ai →</a>
+            </div>
           </div>
 
-          <div className="contact-info" style={{ marginTop: 28 }}>
-            <div className="contact-info-title">Company Info</div>
+          <div className="contact-info">
+            <div className="contact-info-title">Company Information</div>
             <div className="contact-info-item">
               <span className="contact-info-icon">🏢</span>
               <div>
                 <div className="contact-info-label">Company</div>
-                <div className="contact-info-val">Startekk LLC</div>
+                <div className="contact-info-val">Startekk, LLC</div>
+              </div>
+            </div>
+            <div className="contact-info-item">
+              <span className="contact-info-icon">📍</span>
+              <div>
+                <div className="contact-info-label">Address</div>
+                <div className="contact-info-val">5465 Legacy Drive, Suite 650<br />Plano, TX 75024</div>
+              </div>
+            </div>
+            <div className="contact-info-item">
+              <span className="contact-info-icon">📞</span>
+              <div>
+                <div className="contact-info-label">Phone</div>
+                <div className="contact-info-val"><a href="tel:4697133993">(469) 713-3993</a></div>
               </div>
             </div>
             <div className="contact-info-item">
               <span className="contact-info-icon">🌐</span>
               <div>
                 <div className="contact-info-label">Website</div>
-                <div className="contact-info-val"><a href="https://qrfeedback.ai">qrfeedback.ai</a></div>
+                <div className="contact-info-val"><a href="https://www.qrfeedback.ai">www.qrfeedback.ai</a></div>
               </div>
             </div>
             <div className="contact-info-item">
               <span className="contact-info-icon">⏱</span>
               <div>
                 <div className="contact-info-label">Response Time</div>
-                <div className="contact-info-val">Within a week</div>
+                <div className="contact-info-val">Within 1 business day</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right — contact form */}
+        {/* ── Right — form ── */}
         <div className="form-card">
           <div className="form-title">Send us a message</div>
-          <div className="form-sub">Fill out the form and we'll get back to you as soon as possible.</div>
+          <div className="form-sub">Fill out the form and we&apos;ll get back to you as soon as possible.</div>
 
           {submitted ? (
-            <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✓</div>
-              <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.1rem', color: 'var(--text)', marginBottom: 8 }}>Message sent!</div>
-              <div style={{ fontSize: '0.82rem', color: 'var(--text-soft)', lineHeight: 1.6 }}>Thanks for reaching out. We'll get back to you within one business day.</div>
+            <div className="success-state">
+              <div className="success-icon">✓</div>
+              <div className="success-title" style={{ fontFamily: 'DM Serif Display, serif' }}>Message sent!</div>
+              <div className="success-desc">Thanks for reaching out. We&apos;ll get back to you within one business day.</div>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">Full Name</label>
-                <input type="text" className="form-input" placeholder="Your name" required value={name} onChange={e => setName(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Email Address</label>
-                <input type="email" className="form-input" placeholder="your@email.com" required value={email} onChange={e => setEmail(e.target.value)} />
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Full Name</label>
+                  <input type="text" className="form-input" placeholder="Your name" required value={name} onChange={e => setName(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email Address</label>
+                  <input type="email" className="form-input" placeholder="your@email.com" required value={email} onChange={e => setEmail(e.target.value)} />
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Subject</label>
@@ -271,9 +306,10 @@ export default function ContactPage() {
                   <option value="">Select a topic...</option>
                   <option value="general">General enquiry</option>
                   <option value="support">Technical support</option>
-                  <option value="billing">Billing & subscriptions</option>
+                  <option value="billing">Billing &amp; subscriptions</option>
                   <option value="feedback">Product feedback</option>
                   <option value="business">Business plan / Enterprise</option>
+                  <option value="privacy">Privacy &amp; data request</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -285,7 +321,10 @@ export default function ContactPage() {
               <button type="submit" className="submit-btn" disabled={submitting}>
                 {submitting ? 'Sending...' : 'Send Message →'}
               </button>
-              <p className="form-note">We'll reply to the email address you provide above.</p>
+              <p className="form-note">
+                We&apos;ll reply to the email address you provide above. By submitting this form you agree to our{' '}
+                <Link href="/privacy">Privacy Policy</Link>.
+              </p>
             </form>
           )}
         </div>
@@ -297,9 +336,12 @@ export default function ContactPage() {
         <div className="footer-links">
           <Link href="/privacy" className="footer-link">Privacy Policy</Link>
           <Link href="/terms" className="footer-link">Terms of Service</Link>
+          <Link href="/cookies" className="footer-link">Cookie Policy</Link>
+          <Link href="/disclaimer" className="footer-link">Disclaimer</Link>
+          <Link href="/accessibility" className="footer-link">Accessibility</Link>
           <Link href="/contact" className="footer-link">Contact</Link>
         </div>
-        <div className="footer-copy">© 2026 Startekk LLC. All rights reserved.</div>
+        <div className="footer-copy">© 2026 Startekk, LLC. All rights reserved.</div>
       </footer>
     </>
   )
