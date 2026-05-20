@@ -8,16 +8,13 @@ type ConsentState = 'accepted' | 'declined' | null
 export default function CookieBanner() {
   const [consent, setConsent] = useState<ConsentState>(null)
   const [visible, setVisible] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem('qrf_cookie_consent') as ConsentState
     if (stored === 'accepted' || stored === 'declined') {
       setConsent(stored)
-      setVisible(false)
     } else {
-      // Small delay so banner doesn't flash on first paint
-      const t = setTimeout(() => setVisible(true), 800)
+      const t = setTimeout(() => setVisible(true), 600)
       return () => clearTimeout(t)
     }
   }, [])
@@ -47,15 +44,15 @@ export default function CookieBanner() {
     setVisible(true)
   }
 
+  // After consent — show a small "Cookie Settings" link in the corner
   if (!visible) {
-    // Show a small "Cookie Settings" link in the corner after consent is given
     if (consent !== null) {
       return (
         <button
           onClick={handleReset}
           aria-label="Manage cookie preferences"
           style={{
-            position: 'fixed', bottom: '16px', left: '16px', zIndex: 999,
+            position: 'fixed', bottom: '14px', left: '16px', zIndex: 999,
             fontSize: '0.68rem', color: '#b09490',
             background: 'transparent', border: 'none',
             cursor: 'pointer', padding: '4px 0',
@@ -73,207 +70,119 @@ export default function CookieBanner() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
 
-        .cookie-banner-overlay {
-          position: fixed; inset: 0; z-index: 9998;
-          background: rgba(26,18,16,0.35);
-          backdrop-filter: blur(2px);
-          animation: cb-fade-in 0.3s ease;
-        }
-        @keyframes cb-fade-in { from { opacity: 0; } to { opacity: 1; } }
-
-        .cookie-banner {
+        .cb-bar {
           position: fixed;
-          bottom: 24px; left: 50%; transform: translateX(-50%);
+          bottom: 0; left: 0; right: 0;
           z-index: 9999;
-          width: min(560px, calc(100vw - 32px));
-          background: #ffffff;
-          border: 1px solid #e8d5cf;
-          border-radius: 16px;
-          box-shadow: 0 24px 64px rgba(42,31,29,0.18), 0 4px 16px rgba(42,31,29,0.08);
+          background: #1e1412;
+          border-top: 1px solid rgba(232,213,207,0.12);
+          padding: 16px 5vw;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          flex-wrap: wrap;
           font-family: 'DM Sans', sans-serif;
-          animation: cb-slide-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-          overflow: hidden;
+          animation: cb-rise 0.3s ease;
+          box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
         }
-        @keyframes cb-slide-up {
-          from { opacity: 0; transform: translateX(-50%) translateY(24px); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        @keyframes cb-rise {
+          from { transform: translateY(100%); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
         }
 
-        .cb-header {
-          padding: 20px 22px 0;
-          display: flex; align-items: center; justify-content: space-between;
+        .cb-text {
+          flex: 1;
+          min-width: 260px;
         }
         .cb-title {
-          font-family: 'DM Serif Display', serif;
-          font-size: 1.05rem; color: #2a1f1d;
-          display: flex; align-items: center; gap: 8px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: rgba(245,237,232,0.9);
+          margin-bottom: 4px;
+          letter-spacing: 0.2px;
         }
-        .cb-icon {
-          width: 28px; height: 28px; border-radius: 8px;
-          background: #f7ece9; display: flex; align-items: center; justify-content: center;
-          font-size: 14px;
-        }
-        .cb-badge {
-          font-size: 0.62rem; font-weight: 700; letter-spacing: 1px;
-          text-transform: uppercase; color: #4a7a5a;
-          background: #eef4f0; border: 1px solid #c0d9c8;
-          padding: 2px 8px; border-radius: 20px;
-        }
-
-        .cb-body { padding: 14px 22px 0; }
         .cb-desc {
-          font-size: 0.82rem; color: #7a5a56; line-height: 1.7;
+          font-size: 0.76rem;
+          color: rgba(245,237,232,0.45);
+          line-height: 1.6;
+          max-width: 680px;
         }
-        .cb-desc a { color: #b05c52; text-decoration: none; }
+        .cb-desc a {
+          color: #c4896a;
+          text-decoration: none;
+        }
         .cb-desc a:hover { text-decoration: underline; }
 
-        .cb-details {
-          margin-top: 12px;
-          border-top: 1px solid #f0e4e0;
-          padding-top: 12px;
-          animation: cb-expand 0.2s ease;
-        }
-        @keyframes cb-expand { from { opacity: 0; } to { opacity: 1; } }
-
-        .cb-cookie-row {
-          display: flex; align-items: flex-start; gap: 10px;
-          padding: 8px 0; border-bottom: 1px solid #f7ece9;
-        }
-        .cb-cookie-row:last-child { border-bottom: none; }
-        .cb-cookie-label {
-          font-size: 0.78rem; font-weight: 600; color: #2a1f1d;
-          flex: 0 0 120px;
-        }
-        .cb-cookie-desc { font-size: 0.76rem; color: #7a5a56; line-height: 1.6; flex: 1; }
-        .cb-cookie-status {
-          font-size: 0.62rem; font-weight: 700; letter-spacing: 0.8px;
-          text-transform: uppercase; padding: 2px 8px; border-radius: 20px;
-          white-space: nowrap; flex-shrink: 0; margin-top: 1px;
-        }
-        .cb-cookie-status.required { background: #eef4f0; color: #4a7a5a; border: 1px solid #c0d9c8; }
-        .cb-cookie-status.optional { background: #fff8f0; color: #b07030; border: 1px solid #e8d0b0; }
-
-        .cb-toggle-details {
-          background: none; border: none; cursor: pointer;
-          font-size: 0.76rem; color: #b09490;
-          font-family: 'DM Sans', sans-serif;
-          padding: 0; margin-top: 10px;
-          display: flex; align-items: center; gap: 4px;
-          transition: color 0.2s;
-        }
-        .cb-toggle-details:hover { color: #b05c52; }
-
         .cb-actions {
-          padding: 16px 22px 20px;
-          display: flex; gap: 10px; flex-wrap: wrap;
+          display: flex;
+          gap: 10px;
+          flex-shrink: 0;
+          flex-wrap: wrap;
         }
         .cb-btn {
-          flex: 1; min-width: 100px;
-          padding: 10px 18px; border-radius: 8px;
+          padding: 9px 20px;
+          border-radius: 8px;
           font-family: 'DM Sans', sans-serif;
-          font-size: 0.82rem; font-weight: 600;
-          cursor: pointer; transition: all 0.18s; border: 1px solid transparent;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.18s;
           white-space: nowrap;
+          border: 1px solid transparent;
+        }
+        .cb-btn-decline {
+          background: transparent;
+          color: rgba(245,237,232,0.55);
+          border-color: rgba(232,213,207,0.2);
+        }
+        .cb-btn-decline:hover {
+          border-color: rgba(232,213,207,0.45);
+          color: rgba(245,237,232,0.85);
         }
         .cb-btn-accept {
-          background: #b05c52; color: #ffffff; border-color: #b05c52;
+          background: #b05c52;
+          color: #ffffff;
+          border-color: #b05c52;
         }
-        .cb-btn-accept:hover { background: #8c3d34; border-color: #8c3d34; }
-        .cb-btn-essential {
-          background: #eef4f0; color: #4a7a5a; border-color: #c0d9c8;
+        .cb-btn-accept:hover {
+          background: #8c3d34;
+          border-color: #8c3d34;
         }
-        .cb-btn-essential:hover { background: #ddeee4; }
-        .cb-btn-decline {
-          background: transparent; color: #b09490; border-color: #e8d5cf;
-        }
-        .cb-btn-decline:hover { border-color: #b09490; color: #7a5a56; }
 
-        .cb-footer {
-          padding: 0 22px 14px;
-          font-size: 0.68rem; color: #b09490; line-height: 1.6;
-          border-top: 1px solid #f7ece9; padding-top: 10px; margin-top: 2px;
-        }
-        .cb-footer a { color: #b05c52; text-decoration: none; }
-        .cb-footer a:hover { text-decoration: underline; }
-
-        @media (max-width: 480px) {
-          .cb-actions { flex-direction: column; }
-          .cb-btn { flex: none; width: 100%; }
+        @media (max-width: 600px) {
+          .cb-bar { padding: 14px 5vw 18px; }
+          .cb-actions { width: 100%; }
+          .cb-btn { flex: 1; text-align: center; }
         }
       `}</style>
 
-      <div className="cookie-banner-overlay" onClick={handleDecline} aria-hidden="true" />
-
       <div
-        className="cookie-banner"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cb-title"
-        aria-describedby="cb-desc"
+        className="cb-bar"
+        role="region"
+        aria-label="Cookie consent"
       >
-        <div className="cb-header">
-          <div className="cb-title" id="cb-title">
-            <div className="cb-icon">🍪</div>
-            Cookie Preferences
-          </div>
-          <span className="cb-badge">GDPR Compliant</span>
-        </div>
-
-        <div className="cb-body">
-          <p className="cb-desc" id="cb-desc">
-            We use <strong>essential cookies</strong> to keep you signed in and the platform secure — these are always active. With your consent, we also use <strong>optional analytics cookies</strong> (Google Analytics) to understand how the platform is used and improve it. No advertising or cross-site tracking cookies are used. See our{' '}
-            <Link href="/cookies">Cookie Policy</Link> for full details.
+        <div className="cb-text">
+          <div className="cb-title">GDPR &amp; Privacy Compliance</div>
+          <p className="cb-desc">
+            We use strictly necessary cookies to keep the platform running (256-bit SSL secured).
+            We also use optional analytics cookies (Google Analytics) to improve your experience.
+            We do not sell your data. &nbsp;
+            <Link href="/cookies">Cookie Policy</Link>
+            &nbsp;·&nbsp;
+            <Link href="/privacy">Privacy Policy</Link>
           </p>
-
-          <button
-            className="cb-toggle-details"
-            onClick={() => setShowDetails(v => !v)}
-            aria-expanded={showDetails}
-          >
-            {showDetails ? '▲ Hide cookie details' : '▼ Show cookie details'}
-          </button>
-
-          {showDetails && (
-            <div className="cb-details">
-              <div className="cb-cookie-row">
-                <span className="cb-cookie-label">Essential</span>
-                <span className="cb-cookie-desc">Login session, security tokens, 2FA device trust, consent preference</span>
-                <span className="cb-cookie-status required">Always On</span>
-              </div>
-              <div className="cb-cookie-row">
-                <span className="cb-cookie-label">Analytics</span>
-                <span className="cb-cookie-desc">Google Analytics 4 — anonymised usage data to improve the platform</span>
-                <span className="cb-cookie-status optional">Optional</span>
-              </div>
-              <div className="cb-cookie-row">
-                <span className="cb-cookie-label">Advertising</span>
-                <span className="cb-cookie-desc">Retargeting, cross-site tracking, ad network cookies</span>
-                <span className="cb-cookie-status required" style={{ background: '#f7ece9', color: '#b05c52', borderColor: '#e8d5cf' }}>Not Used</span>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="cb-actions">
+          <button className="cb-btn cb-btn-decline" onClick={handleDecline}>
+            Reject Optional
+          </button>
           <button className="cb-btn cb-btn-accept" onClick={handleAccept}>
             Accept All
           </button>
-          <button className="cb-btn cb-btn-essential" onClick={handleDecline}>
-            Essential Only
-          </button>
-          <button className="cb-btn cb-btn-decline" onClick={handleDecline}>
-            Decline
-          </button>
-        </div>
-
-        <div className="cb-footer">
-          By clicking &quot;Accept All&quot; you consent to analytics cookies in addition to essential cookies.
-          &quot;Essential Only&quot; or &quot;Decline&quot; means only strictly necessary cookies will be set.
-          You can change your preference at any time via the &nbsp;
-          <Link href="/cookies">Cookie Policy</Link> or the Cookie Settings link at the bottom of any page.
-          Startekk, LLC · 5465 Legacy Drive Suite 650, Plano TX · <a href="mailto:privacy@qrfeedback.ai">privacy@qrfeedback.ai</a>
         </div>
       </div>
     </>
