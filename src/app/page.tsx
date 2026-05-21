@@ -480,7 +480,7 @@ export default function HomePage() {
       <nav className="nav" aria-label="Main navigation">
         <Link href="/" className="nav-logo" aria-label="QRFeedback.ai Home">
           <Image src="/logo.png" alt="QRFeedback.ai" width={32} height={32} style={{ objectFit: 'contain', flexShrink: 0 }} priority />
-          <span style={{whiteSpace:"nowrap"}}>QRFeedback<span>.ai</span></span>
+          <span style={{whiteSpace:"nowrap", color:"inherit"}}>QRFeedback<span>.ai</span></span>
         </Link>
         <div className="nav-links">
           <a href="#how-it-works" className="nav-link">How it works</a>
@@ -761,7 +761,7 @@ export default function HomePage() {
       <footer className="footer">
         <div className="footer-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Image src="/logo.png" alt="QRFeedback.ai" width={26} height={26} style={{ objectFit: 'contain', opacity: 0.7 }} />
-          <span style={{whiteSpace:"nowrap"}}>QRFeedback<span>.ai</span></span>
+          <span style={{whiteSpace:"nowrap", color:"inherit"}}>QRFeedback<span>.ai</span></span>
         </div>
         <nav className="footer-links" aria-label="Footer navigation">
           <Link href="/privacy" className="footer-link">Privacy Policy</Link>
