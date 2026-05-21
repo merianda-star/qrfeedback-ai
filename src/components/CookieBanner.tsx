@@ -52,7 +52,7 @@ export default function CookieBanner() {
           onClick={handleReset}
           aria-label="Manage cookie preferences"
           style={{
-            position: 'fixed', bottom: '14px', left: '16px', zIndex: 999,
+            position: 'fixed', bottom: '14px', right: '16px', zIndex: 999,
             fontSize: '0.68rem', color: '#b09490',
             background: 'transparent', border: 'none',
             cursor: 'pointer', padding: '4px 0',
