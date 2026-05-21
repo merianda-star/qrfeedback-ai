@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import OnboardingWizard from '@/components/OnboardingWizard'
 import DashboardTour from '@/components/DashboardTour'
 
@@ -203,8 +204,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const sidebarContent = (
     <>
       <div className="sb-logo-area">
-        <div className="sb-logo-text">QRFeedback<span className="sb-logo-dot">.ai</span></div>
-        <div className="sb-tagline">Owner Dashboard</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Image src="/logo.png" alt="QRFeedback.ai" width={38} height={38} style={{ objectFit: 'contain', flexShrink: 0 }} />
+          <div>
+            <div className="sb-logo-text">QRFeedback<span className="sb-logo-dot">.ai</span></div>
+            <div className="sb-tagline">Owner Dashboard</div>
+          </div>
+        </div>
       </div>
 
       <div className="sb-biz-card">

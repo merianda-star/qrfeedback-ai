@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Suspense, useState } from 'react'
 import CodeRedirector from '@/components/CodeRedirector'
 
@@ -158,7 +159,7 @@ export default function HomePage() {
           background: rgba(253,246,244,0.92); backdrop-filter: blur(12px);
           border-bottom: 1px solid rgba(232,213,207,0.6);
         }
-        .nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: var(--text); text-decoration: none; flex-shrink: 0; }
+        .nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.15rem; color: var(--text); text-decoration: none; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
         .nav-logo span { color: var(--rose); }
         .nav-links { display: flex; align-items: center; gap: 28px; }
         .nav-link { font-size: 0.83rem; font-weight: 500; color: var(--text-mid); text-decoration: none; transition: color 0.2s; white-space: nowrap; }
@@ -477,7 +478,10 @@ export default function HomePage() {
 
       {/* NAV */}
       <nav className="nav" aria-label="Main navigation">
-        <Link href="/" className="nav-logo" aria-label="QRFeedback.ai Home">QRFeedback<span>.ai</span></Link>
+        <Link href="/" className="nav-logo" aria-label="QRFeedback.ai Home">
+          <Image src="/logo.png" alt="QRFeedback.ai" width={32} height={32} style={{ objectFit: 'contain', flexShrink: 0 }} priority />
+          QRFeedback<span>.ai</span>
+        </Link>
         <div className="nav-links">
           <a href="#how-it-works" className="nav-link">How it works</a>
           <a href="#pricing" className="nav-link">Pricing</a>
@@ -755,7 +759,10 @@ export default function HomePage() {
       </section>
 
       <footer className="footer">
-        <div className="footer-logo">QRFeedback<span>.ai</span></div>
+        <div className="footer-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Image src="/logo.png" alt="QRFeedback.ai" width={26} height={26} style={{ objectFit: 'contain', opacity: 0.7 }} />
+          QRFeedback<span>.ai</span>
+        </div>
         <nav className="footer-links" aria-label="Footer navigation">
           <Link href="/privacy" className="footer-link">Privacy Policy</Link>
           <Link href="/terms" className="footer-link">Terms of Service</Link>
