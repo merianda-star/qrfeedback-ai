@@ -24,22 +24,22 @@ export const metadata: Metadata = {
     template: '%s | QRFeedback.ai',
   },
 
-  description: 'Collect customer feedback via QR code. AI automatically routes 4–5 star reviews to Google, captures complaints privately. Setup in 2 minutes. No app required.',
+  description: 'Collect and manage customer feedback with AI-powered QR codes. Understand customer sentiment, resolve issues quickly, and improve your online reputation. Setup in 2 minutes. No app required.',
 
   keywords: [
     'QR code feedback',
     'customer feedback QR code',
     'Google review management',
-    'review routing software',
     'AI feedback analysis',
     'QR code review system',
-    'smart review routing',
+    'customer feedback platform',
     'feedback collection software',
     'restaurant feedback QR',
-    'negative review management',
+    'customer complaint management',
+    'online reputation management',
     'qrfeedback',
-    'qr code',
-    'feedback',
+    'qr code feedback tool',
+    'business feedback software',
   ],
 
   authors: [{ name: 'Startekk LLC', url: 'https://www.qrfeedback.ai' }],
@@ -66,13 +66,13 @@ export const metadata: Metadata = {
     url: 'https://www.qrfeedback.ai',
     siteName: 'QRFeedback.ai',
     title: 'QRFeedback.ai — AI-Powered QR Code Feedback & Review Management',
-    description: 'Collect customer feedback via QR code. AI routes happy customers to Google Reviews, captures complaints privately. Setup in 2 minutes. No app required.',
+    description: 'AI-powered QR code feedback platform for customer-facing businesses. Collect insights, resolve complaints before they escalate, and build a stronger online reputation. Setup in 2 minutes.',
     images: [
       {
         url: '/og-image.png',   // Create a 1200×630 image and put it in /public
         width: 1200,
         height: 630,
-        alt: 'QRFeedback.ai — Turn customer feedback into 5-star Google reviews',
+        alt: 'QRFeedback.ai — AI-Powered Customer Feedback & Review Management',
         type: 'image/png',
       },
     ],
@@ -83,7 +83,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: '@qrfeedbackai',    // update if you have a Twitter handle
     title: 'QRFeedback.ai — AI-Powered QR Code Feedback',
-    description: 'Collect customer feedback via QR code. AI routes happy customers to Google Reviews, captures complaints privately.',
+    description: 'AI-powered QR code feedback platform. Collect customer insights, resolve complaints quickly, and improve your online reputation. No app required.',
     images: ['/og-image.png'],
   },
 
