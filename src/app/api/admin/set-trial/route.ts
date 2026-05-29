@@ -31,5 +31,18 @@ export async function POST(req: NextRequest) {
     .eq('id', userId)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  try {
+    const supabase = await createServerClient()
+    const { data: { user: adminUser } } = await supabase.auth.getUser()
+    const { data: tp } = await adminSupabase.from('profiles').select('email').eq('id', userId).single()
+    await adminSupabase.from('audit_logs').insert({
+      admin_id: adminUser?.id, admin_email: adminUser?.email,
+      action: 'trial_set', target_user_id: userId,
+      target_email: tp?.email,
+      details: { plan, trial_ends_at }
+    })
+  } catch {}
+
   return NextResponse.json({ success: true })
 }

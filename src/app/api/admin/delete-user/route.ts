@@ -55,8 +55,21 @@ export async function POST(req: NextRequest) {
   await adminSupabase.from('forms').delete().eq('user_id', userId)
   await adminSupabase.from('profiles').delete().eq('id', userId)
 
+  // Capture email before deletion
+  const { data: delProfile } = await adminSupabase.from('profiles').select('email').eq('id', userId).single()
   const { error } = await adminSupabase.auth.admin.deleteUser(userId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  try {
+    const supabase = await createServerClient()
+    const { data: { user: adminUser } } = await supabase.auth.getUser()
+    await adminSupabase.from('audit_logs').insert({
+      admin_id: adminUser?.id, admin_email: adminUser?.email,
+      action: 'user_deleted', target_user_id: userId,
+      target_email: delProfile?.email,
+      details: {}
+    })
+  } catch {}
 
   return NextResponse.json({ success: true })
 }

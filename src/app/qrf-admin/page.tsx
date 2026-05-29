@@ -144,7 +144,7 @@ export default function AdminPage() {
   const [actionMsg, setActionMsg] = useState('')
   const [actionError, setActionError] = useState('')
   const [activeTab, setActiveTab] = useState<
-    'users' | 'failed-ai' | 'signup-activity' | 'trial-expiry' | 'inactive' | 'contact-requests' | 'manage-admins' | 'activity'
+    'users' | 'failed-ai' | 'signup-activity' | 'trial-expiry' | 'inactive' | 'contact-requests' | 'manage-admins' | 'activity' | 'audit-log' | 'system-health'
   >('users')
   const [failedAI, setFailedAI] = useState<any[]>([])
 
@@ -184,10 +184,40 @@ export default function AdminPage() {
   const [recentActivity, setRecentActivity] = useState<ActivityEntry[]>([])
   const [todayStats, setTodayStats] = useState({ visits: 0, signins: 0, unique_users: 0 })
 
+  // Audit log
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [auditTotal, setAuditTotal] = useState(0)
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditFilter, setAuditFilter] = useState('')
+
+  // System health
+  const [health, setHealth] = useState<any>(null)
+  const [healthLoading, setHealthLoading] = useState(false)
+
+  async function loadAuditLog() {
+    setAuditLoading(true)
+    const url = auditFilter ? `/api/admin/audit-log?action=${auditFilter}&limit=100` : '/api/admin/audit-log?limit=100'
+    const res = await fetch(url)
+    const json = await res.json()
+    setAuditLogs(json.logs || [])
+    setAuditTotal(json.total || 0)
+    setAuditLoading(false)
+  }
+
+  async function loadSystemHealth() {
+    setHealthLoading(true)
+    const res = await fetch('/api/admin/system-health')
+    const json = await res.json()
+    setHealth(json)
+    setHealthLoading(false)
+  }
+
   useEffect(() => { loadData() }, [])
 
   useEffect(() => {
     if (activeTab === 'contact-requests' && contactRequests.length === 0) loadContactRequests()
+    if (activeTab === 'audit-log') loadAuditLog()
+    if (activeTab === 'system-health') loadSystemHealth()
   }, [activeTab])
 
   useEffect(() => {
@@ -597,6 +627,8 @@ export default function AdminPage() {
             )}
             <div className="sb-section">Insights</div>
             <button className={`sb-link ${activeTab === 'activity' ? 'active' : ''}`} onClick={() => setActiveTab('activity')}>📊 Activity Log</button>
+            <button className={`sb-link ${activeTab === 'audit-log' ? 'active' : ''}`} onClick={() => { setActiveTab('audit-log'); setSelectedUser(null) }}>🔍 Audit Log</button>
+            <button className={`sb-link ${activeTab === 'system-health' ? 'active' : ''}`} onClick={() => { setActiveTab('system-health'); setSelectedUser(null) }}>❤️ System Health</button>
             <button className={`sb-link ${activeTab === 'signup-activity' ? 'active' : ''}`} onClick={() => setActiveTab('signup-activity')}>📈 Signup Activity</button>
             <button className={`sb-link ${activeTab === 'trial-expiry' ? 'active' : ''}`} onClick={() => setActiveTab('trial-expiry')}>
               ⏳ Trial Expiry {trialExpiryUsers.length > 0 && <span className="sb-link-badge">{trialExpiryUsers.length}</span>}
@@ -624,6 +656,8 @@ export default function AdminPage() {
               {activeTab === 'contact-requests' && 'Contact Requests'}
               {activeTab === 'manage-admins' && 'Manage Admins'}
               {activeTab === 'activity' && 'Activity Log'}
+              {activeTab === 'audit-log' && 'Audit Log'}
+              {activeTab === 'system-health' && 'System Health'}
             </div>
             <button onClick={loadData} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.76rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text-mid)', fontFamily: 'DM Sans, sans-serif' }}>
               ↺ Refresh
@@ -806,7 +840,174 @@ export default function AdminPage() {
             )}
 
             {/* ── MANAGE ADMINS ── */}
-            {activeTab === 'manage-admins' && (
+    
+            {/* ── AUDIT LOG TAB ── */}
+            {activeTab === 'audit-log' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+                  <select
+                    value={auditFilter}
+                    onChange={e => setAuditFilter(e.target.value)}
+                    style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', fontSize: '0.8rem', background: 'var(--bg)', fontFamily: 'DM Sans, sans-serif', cursor: 'pointer' }}
+                  >
+                    <option value="">All actions</option>
+                    <option value="plan_changed">Plan changed</option>
+                    <option value="trial_set">Trial set</option>
+                    <option value="email_changed">Email changed</option>
+                    <option value="user_deleted">User deleted</option>
+                  </select>
+                  <button onClick={loadAuditLog} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                    Refresh
+                  </button>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginLeft: 'auto' }}>{auditTotal} total entries</span>
+                </div>
+
+                {auditLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-soft)', fontSize: '0.85rem' }}>Loading audit log...</div>
+                ) : auditLogs.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-soft)', fontSize: '0.85rem' }}>No audit log entries yet. Actions like plan changes, deletions and email updates will appear here.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {/* Header */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '160px 140px 1fr 1fr 140px', gap: '0 12px', padding: '8px 14px', background: 'var(--rose-soft)', borderRadius: '8px 8px 0 0', fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      <span>Timestamp</span><span>Action</span><span>Admin</span><span>Target User</span><span>Details</span>
+                    </div>
+                    {auditLogs.map((log: any) => (
+                      <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '160px 140px 1fr 1fr 140px', gap: '0 12px', padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: '0.78rem', color: 'var(--text-mid)', alignItems: 'start', background: 'var(--surface)' }}>
+                        <span style={{ color: 'var(--text-soft)', fontSize: '0.72rem' }}>
+                          {new Date(log.created_at).toLocaleDateString()}<br/>
+                          <span style={{ fontSize: '0.68rem' }}>{new Date(log.created_at).toLocaleTimeString()}</span>
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: 20, fontSize: '0.68rem', fontWeight: 700,
+                            background: log.action === 'user_deleted' ? '#fef5f4' : log.action === 'plan_changed' ? '#edf4ef' : log.action === 'trial_set' ? '#fff9f0' : 'var(--rose-soft)',
+                            color: log.action === 'user_deleted' ? 'var(--rose)' : log.action === 'plan_changed' ? 'var(--green)' : log.action === 'trial_set' ? '#b07030' : 'var(--text-mid)',
+                            border: '1px solid var(--border)'
+                          }}>
+                            {log.action?.replace(/_/g, ' ')}
+                          </span>
+                        </span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.admin_email}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.target_email || log.target_user_id || '—'}</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>
+                          {log.details ? Object.entries(log.details).map(([k, v]) => `${k}: ${v}`).join(', ') : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SYSTEM HEALTH TAB ── */}
+            {activeTab === 'system-health' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                  <button onClick={loadSystemHealth} style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '0.8rem', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                    ↻ Refresh
+                  </button>
+                </div>
+
+                {healthLoading || !health ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-soft)', fontSize: '0.85rem' }}>
+                    {healthLoading ? 'Loading system health...' : 'Click Refresh to load health data.'}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                    {/* ── Stats grid ── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                      {[
+                        { label: 'Total Users', value: health.users.total, sub: `+${health.users.new_today} today`, color: '#c4896a' },
+                        { label: 'New This Week', value: health.users.new_this_week, sub: `+${health.users.new_this_month} this month`, color: '#4a7a5a' },
+                        { label: 'Total Forms', value: health.forms.total, sub: `${(health.forms.total / Math.max(health.users.total, 1)).toFixed(1)} avg/user`, color: '#b05c52' },
+                        { label: 'Total Responses', value: health.responses.total, sub: `${health.responses.today} today`, color: '#c4896a' },
+                        { label: 'Responses This Week', value: health.responses.this_week, sub: `${(health.responses.this_week / 7).toFixed(0)}/day avg`, color: '#4a7a5a' },
+                        { label: 'AI Calls This Week', value: health.ai.calls_this_week, sub: `${health.ai.failed_unprocessed} failed`, color: health.ai.failed_unprocessed > 0 ? '#b05c52' : '#4a7a5a' },
+                      ].map(s => (
+                        <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px', borderTop: `3px solid ${s.color}` }}>
+                          <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>{s.label}</div>
+                          <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.8rem', color: 'var(--text)', lineHeight: 1, marginBottom: 4 }}>{s.value.toLocaleString()}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)' }}>{s.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ── Plan breakdown ── */}
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '18px 20px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)', marginBottom: 14, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plan Distribution</div>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                        {Object.entries(health.users.by_plan).map(([plan, count]: [string, any]) => {
+                          const pct = Math.round((count / Math.max(health.users.total, 1)) * 100)
+                          const colors: Record<string, string> = { free: '#b09490', pro: '#4a7a5a', business: '#b05c52' }
+                          return (
+                            <div key={plan} style={{ flex: 1, minWidth: 100, textAlign: 'center' }}>
+                              <div style={{ fontSize: '1.4rem', fontFamily: 'DM Serif Display, serif', color: colors[plan] || 'var(--text)' }}>{count}</div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>{plan}</div>
+                              <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${pct}%`, background: colors[plan] || 'var(--rose)', borderRadius: 2 }}/>
+                              </div>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-soft)', marginTop: 4 }}>{pct}%</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ── Daily charts ── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      {[
+                        { title: 'Responses (last 7 days)', data: health.responses.daily_chart, color: '#b05c52' },
+                        { title: 'Signups (last 7 days)', data: health.signups.daily_chart, color: '#4a7a5a' },
+                      ].map(chart => {
+                        const max = Math.max(...chart.data.map((d: any) => d.count), 1)
+                        return (
+                          <div key={chart.title} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '18px 20px' }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{chart.title}</div>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+                              {chart.data.map((d: any) => (
+                                <div key={d.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                                  <div style={{ fontSize: '0.6rem', color: 'var(--text-soft)' }}>{d.count}</div>
+                                  <div style={{ width: '100%', background: chart.color, borderRadius: '3px 3px 0 0', height: `${Math.max((d.count / max) * 60, d.count > 0 ? 4 : 0)}px`, opacity: 0.85 }}/>
+                                  <div style={{ fontSize: '0.55rem', color: 'var(--text-soft)', whiteSpace: 'nowrap' }}>
+                                    {new Date(d.date).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* ── Recent signups ── */}
+                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '18px 20px' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Most Recent Signups</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {health.signups.recent.map((u: any) => (
+                          <div key={u.email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: '0.8rem' }}>
+                            <div>
+                              <span style={{ color: 'var(--text)', fontWeight: 500 }}>{u.full_name || u.email}</span>
+                              {u.business_name && <span style={{ color: 'var(--text-soft)', fontSize: '0.72rem', marginLeft: 8 }}>{u.business_name}</span>}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: 20, background: u.plan === 'business' ? '#fef5f4' : u.plan === 'pro' ? '#edf4ef' : 'var(--rose-soft)', color: u.plan === 'business' ? 'var(--rose)' : u.plan === 'pro' ? 'var(--green)' : 'var(--text-soft)', border: '1px solid var(--border)' }}>{u.plan}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-soft)' }}>{new Date(u.created_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-soft)', textAlign: 'right' }}>
+                      Last updated: {new Date(health.generated_at).toLocaleTimeString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+        {activeTab === 'manage-admins' && (
               <>
                 {adminActionMsg && <div className="action-msg" style={{ marginBottom: 16 }}>{adminActionMsg}</div>}
                 {adminActionError && <div className="action-err" style={{ marginBottom: 16 }}>✗ {adminActionError}</div>}

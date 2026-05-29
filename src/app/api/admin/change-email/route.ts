@@ -37,5 +37,17 @@ export async function POST(req: NextRequest) {
   const { error: signOutError } = await adminSupabase.auth.admin.signOut(userId, 'others')
   if (signOutError) console.warn('Could not force sign out:', signOutError.message)
 
+  try {
+    const { data: { user: adminUser } } = await adminSupabase.auth.getUser()
+    const supabase = await createServerClient()
+    const { data: { user: currentAdmin } } = await supabase.auth.getUser()
+    await adminSupabase.from('audit_logs').insert({
+      admin_id: currentAdmin?.id, admin_email: currentAdmin?.email,
+      action: 'email_changed', target_user_id: userId,
+      target_email: newEmail,
+      details: { new_email: newEmail }
+    })
+  } catch {}
+
   return NextResponse.json({ success: true, message: `Email updated to ${newEmail}.` })
 }
