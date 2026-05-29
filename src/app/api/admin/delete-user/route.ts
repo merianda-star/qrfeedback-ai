@@ -24,6 +24,25 @@ export async function POST(req: NextRequest) {
   const { userId } = await req.json()
   if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 })
 
+  // Block deletion of master admin accounts
+  const { data: targetProfile } = await adminSupabase
+    .from('profiles').select('is_master_admin').eq('id', userId).single()
+  if (targetProfile?.is_master_admin) {
+    return NextResponse.json({ error: 'Master admin accounts cannot be deleted.' }, { status: 403 })
+  }
+
+  // Also block admins from deleting other admins — only master admins can do that
+  const supabase = await createServerClient()
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  const { data: currentProfile } = await adminSupabase
+    .from('profiles').select('is_master_admin').eq('id', currentUser!.id).single()
+  
+  const { data: targetAdminCheck } = await adminSupabase
+    .from('profiles').select('is_admin').eq('id', userId).single()
+  if (targetAdminCheck?.is_admin && !currentProfile?.is_master_admin) {
+    return NextResponse.json({ error: 'Only master admins can delete admin accounts.' }, { status: 403 })
+  }
+
   const { data: forms } = await adminSupabase.from('forms').select('id').eq('user_id', userId)
   const formIds = forms?.map((f: any) => f.id) || []
 

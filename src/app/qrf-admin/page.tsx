@@ -1241,7 +1241,11 @@ export default function AdminPage() {
 
             <div className="danger-zone">
               <div className="danger-zone-title">⚠ Danger Zone</div>
-              {!showDelete ? (
+              {selectedUser.is_master_admin ? (
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
+                  🔒 Master admin accounts cannot be deleted.
+                </div>
+              ) : !showDelete ? (
                 <button className="action-btn red-outline" onClick={() => { setShowDelete(true); setActionError('') }}>🗑 Delete Account</button>
               ) : (
                 <>
