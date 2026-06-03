@@ -26,7 +26,7 @@ type FormData = {
   is_active: boolean
 }
 
-type Screen = 'rating' | 'survey' | 'consent' | 'clipboard' | 'email-capture' | 'thankyou-positive' | 'thankyou-negative' | 'not-found' | 'closed'
+type Screen = 'rating' | 'survey' | 'consent' | 'clipboard' | 'email-capture' | 'thankyou-positive' | 'thankyou-negative' | 'not-found' | 'closed' | 'limit-reached'
 
 const STAR_LABELS = ['', 'Terrible 😞', 'Poor 😕', 'Average 😐', 'Great 😊', 'Amazing 🤩']
 
@@ -117,6 +117,14 @@ export default function FeedbackPage() {
     // Use server-side API route to bypass RLS and read owner profile settings
     const res = await fetch(`/api/form-settings?form_id=${formId}`)
     const profile = await res.json()
+
+    // Check response limit before customer fills anything
+    if (profile.limit_reached) {
+      setFormData(data) // keep form name for the screen message
+      setScreen('limit-reached')
+      setLoading(false)
+      return
+    }
 
     setOwnerPlan(profile.plan || 'free')
     setOwnerBrand(profile.business_name || '')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { RESPONSE_LIMITS } from '@/lib/plan-limits'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,12 +17,40 @@ export async function GET(req: NextRequest) {
 
   const { data: profile } = await adminSupabase
     .from('profiles')
-    .select('plan, business_name, business_type, smart_routing, ai_email_alerts, notify_on_positive, alert_email, email')
+    .select('plan, trial_ends_at, business_name, business_type, smart_routing, ai_email_alerts, notify_on_positive, alert_email, email')
     .eq('id', form.user_id)
     .single()
 
+  const isTrialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date()
+  const effectivePlan = profile?.plan || (isTrialActive ? 'pro' : 'free')
+  const limit = RESPONSE_LIMITS[effectivePlan] ?? RESPONSE_LIMITS['free']
+
+  // Check monthly response limit before the customer can start filling the form
+  let limit_reached = false
+  if (limit !== null) {
+    const now = new Date()
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
+
+    // Count responses across ALL forms owned by this user this month
+    const { data: userForms } = await adminSupabase
+      .from('forms').select('id').eq('user_id', form.user_id)
+
+    const formIds = userForms?.map(f => f.id) || []
+
+    const { count: monthlyCount } = await adminSupabase
+      .from('responses')
+      .select('id', { count: 'exact', head: true })
+      .in('form_id', formIds)
+      .gte('submitted_at', startOfMonth)
+
+    if ((monthlyCount || 0) >= limit) {
+      limit_reached = true
+    }
+  }
+
   return NextResponse.json({
-    plan:               profile?.plan              || 'free',
+    plan:               effectivePlan,
+    limit_reached,
     business_name:      profile?.business_name     || '',
     business_type:      profile?.business_type     || 'other',
     smart_routing:      profile?.smart_routing     ?? true,
