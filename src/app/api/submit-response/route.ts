@@ -56,9 +56,16 @@ export async function POST(req: NextRequest) {
       const used = monthlyCount || 0
 
       if (used >= limit) {
+        // Auto-close all of this user's forms so future customers see
+        // the neutral "form is closed" screen instead of filling the form
+        await adminSupabase
+          .from('forms')
+          .update({ is_active: false })
+          .eq('user_id', user_id)
+
         return NextResponse.json({
           error: 'Monthly response limit reached',
-          limit_reached: true,
+          closed: true,
           used,
           limit,
           plan: effectivePlan,

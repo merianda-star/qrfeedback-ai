@@ -26,7 +26,7 @@ type FormData = {
   is_active: boolean
 }
 
-type Screen = 'rating' | 'survey' | 'consent' | 'clipboard' | 'email-capture' | 'thankyou-positive' | 'thankyou-negative' | 'not-found' | 'closed' | 'limit-reached'
+type Screen = 'rating' | 'survey' | 'consent' | 'clipboard' | 'email-capture' | 'thankyou-positive' | 'thankyou-negative' | 'not-found' | 'closed'
 
 const STAR_LABELS = ['', 'Terrible 😞', 'Poor 😕', 'Average 😐', 'Great 😊', 'Amazing 🤩']
 
@@ -146,7 +146,7 @@ export default function FeedbackPage() {
     const json = await res.json()
     setSubmitting(false)
 
-    if (json.limit_reached) { setScreen('limit-reached'); return }
+    if (json.closed) { setScreen('closed'); return }
     if (!res.ok) { console.error('Submit error:', json.error); return }
 
     // Fire positive alert email (non-blocking)
@@ -184,7 +184,7 @@ export default function FeedbackPage() {
     const json = await res.json()
     setSavingEmail(false)
 
-    if (json.limit_reached) { setScreen('limit-reached'); return }
+    if (json.closed) { setScreen('closed'); return }
     if (!res.ok) { console.error('Submit error:', json.error); return }
 
     // Pass response_id directly — eliminates race condition from form_id lookup
@@ -241,22 +241,6 @@ export default function FeedbackPage() {
     </div>
   )
 
-  if (screen === 'limit-reached') return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 80% 10%, rgba(196,137,106,0.1) 0%, transparent 50%), radial-gradient(ellipse at 10% 90%, rgba(176,92,82,0.07) 0%, transparent 50%), #fdf6f4', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: 'DM Sans, sans-serif' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600&display=swap');`}</style>
-      <div style={{ background: '#fff', borderRadius: 16, padding: '40px 32px', maxWidth: 400, width: '100%', border: '1px solid #e8d5cf', boxShadow: '0 8px 40px rgba(42,31,29,0.1)', textAlign: 'center' }}>
-        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#fef5f4', border: '2px solid #f0c4be', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', margin: '0 auto 20px' }}>📋</div>
-        <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1.2rem', color: '#2a1f1d', marginBottom: 10 }}>We're not accepting feedback right now</div>
-        <div style={{ fontSize: '0.8rem', color: '#b09490', lineHeight: 1.7 }}>
-          {formData?.title ? <><strong style={{ color: '#7a5a56' }}>{formData.title}</strong> has reached its feedback limit for this month.<br /></> : null}
-          Please check back next month or contact the business directly.
-        </div>
-      </div>
-      <div style={{ marginTop: 20, fontSize: '0.65rem', color: '#b09490', letterSpacing: '0.3px' }}>
-        Powered by QRFeedback<span style={{ color: '#b05c52' }}>.ai</span>
-      </div>
-    </div>
-  )
 
   const starStr = rating > 0 ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : ''
   const issueOptions = ISSUE_OPTIONS[ownerBusinessType] || ISSUE_OPTIONS.other
