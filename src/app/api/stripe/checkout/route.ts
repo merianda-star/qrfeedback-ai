@@ -37,6 +37,20 @@ export async function POST(req: NextRequest) {
     // Get or create Stripe customer
     let customerId = profile?.stripe_customer_id
 
+    if (customerId) {
+      // Verify the customer still exists in Stripe (could be a test mode ID in live mode)
+      try {
+        await stripe.customers.retrieve(customerId)
+      } catch {
+        // Customer doesn't exist — clear it and create a new one
+        customerId = null
+        await adminSupabase
+          .from('profiles')
+          .update({ stripe_customer_id: null })
+          .eq('id', user.id)
+      }
+    }
+
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: profile?.email || user.email || '',
