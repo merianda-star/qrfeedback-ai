@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { RESPONSE_LIMITS, RESPONSE_WARN_PCT } from '@/lib/plan-limits'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 type Response = {
@@ -267,6 +268,7 @@ function ResponsesPageInner() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [monthlyCount, setMonthlyCount] = useState(0)
+  const [responseLimit, setResponseLimit] = useState<number | null>(50)
   const [expandedReply, setExpandedReply] = useState<string | null>(null)
   const [replyModalResponse, setReplyModalResponse] = useState<Response | null>(null)
   const [aiUsage, setAIUsage] = useState<AIUsage | null>(null)
@@ -280,6 +282,7 @@ function ResponsesPageInner() {
     const { data: profile } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
     const userPlan = profile?.plan || 'free'
     setPlan(userPlan)
+    setResponseLimit(RESPONSE_LIMITS[userPlan] ?? RESPONSE_LIMITS['free'])
 
     const { data: formsData } = await supabase.from('forms').select('id, title').eq('user_id', user.id)
     const formMap: Record<string, string> = {}
@@ -480,10 +483,10 @@ function ResponsesPageInner() {
         {plan === 'free' && (
           <div className="usage-bar">
             <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)', fontWeight: 600, whiteSpace: 'nowrap' }}>This month</span>
-            <div className="usage-track-old"><div style={{ height: '100%', width: `${Math.min((monthlyCount / 50) * 100, 100)}%`, borderRadius: 3, background: 'linear-gradient(90deg, var(--rose), var(--terra))' }}></div></div>
+            <div className="usage-track-old"><div style={{ height: '100%', width: `${responseLimit ? Math.min((monthlyCount / responseLimit) * 100, 100) : 0}%`, borderRadius: 3, background: 'linear-gradient(90deg, var(--rose), var(--terra))' }}></div></div>
             <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>{monthlyCount}</span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>/ 50</span>
-            {monthlyCount >= 40 && <button className="upgrade-pill" onClick={() => router.push('/dashboard/profile')}>Upgrade</button>}
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-soft)' }}>/ {responseLimit === null ? '∞' : responseLimit}</span>
+            {responseLimit && monthlyCount >= responseLimit * RESPONSE_WARN_PCT && <button className="upgrade-pill" onClick={() => router.push('/dashboard/profile')}>Upgrade</button>}
           </div>
         )}
 

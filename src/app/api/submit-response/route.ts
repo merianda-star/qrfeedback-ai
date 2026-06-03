@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { RESPONSE_LIMITS } from '@/lib/plan-limits'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
-
-// Monthly response limits per plan
-const RESPONSE_LIMITS: Record<string, number | null> = {
-  free:     5,
-  pro:      1000,
-  business: null, // unlimited
-}
 
 export async function POST(req: NextRequest) {
   try {
