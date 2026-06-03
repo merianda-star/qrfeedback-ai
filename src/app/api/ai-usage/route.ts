@@ -8,8 +8,8 @@ const adminSupabase = createClient(
 )
 
 const LIMITS = {
-  process: { pro: 1000, business: 5000 },
-  reply:   { pro: 20,   business: 50   },
+  process: { pro: 10, business: 10 },
+  reply:   { pro: 5,   business: 5  },
 } as const
 
 export async function GET(req: NextRequest) {

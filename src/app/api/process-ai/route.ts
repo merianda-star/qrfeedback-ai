@@ -9,7 +9,7 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-const PROCESS_LIMITS: Record<string, number> = { pro: 1000, business: 5000 }
+const PROCESS_LIMITS: Record<string, number> = { pro: 5, business: 5 }
 
 async function checkAndRecordProcessUsage(userId: string, plan: string) {
   const limit = PROCESS_LIMITS[plan]
