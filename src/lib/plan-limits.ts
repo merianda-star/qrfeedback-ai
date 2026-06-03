@@ -33,7 +33,7 @@ export const FORM_LIMITS: Record<Plan, number | null> = {
 }
 
 export const RESPONSE_LIMITS: Record<Plan, number | null> = {
-  free: 50,
+  free: 5,
   pro: 1000,
   business: null, // unlimited
 }
