@@ -137,7 +137,7 @@ export default function FeedbackPage() {
     setSubmitting(true)
     const { error } = await supabase.from('responses').insert({
       form_id: formId, user_id: formData.user_id, rating, answers,
-      ai_processed: false, submitted_at: new Date().toISOString(),
+      ai_processed: true, submitted_at: new Date().toISOString(),
     })
     setSubmitting(false)
     if (error) { console.error('Insert error:', error); return }
@@ -163,15 +163,16 @@ export default function FeedbackPage() {
     const emailToSave = customerEmail.trim()
     setSavingEmail(true)
 
-    const { error } = await supabase.from('responses').insert({
+    const { data: insertedResponse, error } = await supabase.from('responses').insert({
       form_id: formId, user_id: formData.user_id, rating, answers,
       ai_processed: false, submitted_at: new Date().toISOString(),
       customer_email: emailToSave || null,
-    })
+    }).select('id').single()
     setSavingEmail(false)
     if (error) { console.error('Insert error:', error); return }
 
-    fetch('/api/process-ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ form_id: formId, rating, answers }) }).catch(() => {})
+    // Pass response_id directly — eliminates race condition from form_id lookup
+    fetch('/api/process-ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ response_id: insertedResponse?.id, rating, answers }) }).catch(() => {})
     fetch('/api/alerts/negative', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ form_id: formId }) }).catch(() => {})
 
     setScreen('thankyou-negative')
