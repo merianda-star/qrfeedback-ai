@@ -103,30 +103,30 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
   onClose: () => void
   onReplyUsed: () => void
 }) {
-  const canUseAI = !!response.ai_suggested_reply && (aiUsage?.reply.remaining ?? 0) > 0
-  const aiLimitReached = !!response.ai_suggested_reply && (aiUsage?.reply.remaining ?? 1) <= 0
-  const [tab, setTab] = useState<'ai' | 'custom'>(canUseAI ? 'ai' : 'custom')
-  const [replyText, setReplyText] = useState(canUseAI ? response.ai_suggested_reply! : '')
-  const [aiLoading, setAILoading] = useState(false)
+  const hasAiReply = !!response.ai_suggested_reply
+  const aiLimitReached = (aiUsage?.reply.remaining ?? 1) <= 0
+  const canGenerateAI = hasAiReply && !aiLimitReached && aiUsage?.plan !== 'free'
 
-  async function handleSwitchToAI() {
-    if (!canUseAI || tab === 'ai') return
-    setAILoading(true)
+  const [replyText, setReplyText] = useState('')
+  const [aiGenerated, setAiGenerated] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const replyLimit = aiUsage?.reply.limit ?? 0
+  const replyUsed  = aiUsage?.reply.used ?? 0
+  const replyRemaining = aiUsage?.reply.remaining ?? 0
+
+  async function handleGenerateAI() {
+    if (!canGenerateAI || aiLoading) return
+    setAiLoading(true)
     await fetch('/api/ai-usage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'reply' }),
-    })
-    setAILoading(false)
-    setTab('ai')
+    }).catch(() => {})
     setReplyText(response.ai_suggested_reply || '')
+    setAiGenerated(true)
+    setAiLoading(false)
     onReplyUsed()
-  }
-
-  function handleTabSwitch(newTab: 'ai' | 'custom') {
-    if (newTab === 'ai') { handleSwitchToAI(); return }
-    setTab('custom')
-    setReplyText('')
   }
 
   function handleSend() {
@@ -137,15 +137,12 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
     window.open(`https://mail.google.com/mail/?view=cm&to=${to}&su=${subject}&body=${body}`, '_blank')
   }
 
-  const replyLimit = aiUsage?.reply.limit ?? 0
-  const replyUsed  = aiUsage?.reply.used ?? 0
-  const replyRemaining = aiUsage?.reply.remaining ?? 0
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(42,31,29,0.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, backdropFilter: 'blur(4px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 500, border: '1px solid #e8d5cf', boxShadow: '0 24px 64px rgba(42,31,29,0.18)', overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
 
+        {/* Header */}
         <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #e8d5cf', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontFamily: 'DM Serif Display, serif', fontSize: '1rem', color: '#2a1f1d', marginBottom: 3 }}>Reply to Customer</div>
@@ -156,12 +153,13 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b09490', fontSize: '1.1rem', padding: 4, lineHeight: 1, flexShrink: 0 }}>✕</button>
         </div>
 
-        {response.ai_suggested_reply && aiUsage && aiUsage.plan !== 'free' && (
+        {/* AI usage bar — only for paid plans */}
+        {aiUsage && aiUsage.plan !== 'free' && (
           <div style={{ padding: '10px 20px 0' }}>
             <div style={{ background: aiLimitReached ? '#fef5f4' : '#edf4ef', border: `1px solid ${aiLimitReached ? '#f0c4be' : 'rgba(74,122,90,0.2)'}`, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, color: aiLimitReached ? '#8c3d34' : '#4a7a5a' }}>
-                  {aiLimitReached ? '⚠ Daily AI reply limit reached' : `✦ AI replies today`}
+                  {aiLimitReached ? '⚠ Daily AI reply limit reached' : '✦ AI replies today'}
                 </span>
                 {!aiLimitReached && (
                   <div style={{ flex: 1, height: 5, background: 'rgba(74,122,90,0.15)', borderRadius: 3, overflow: 'hidden', maxWidth: 80 }}>
@@ -181,46 +179,21 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
           </div>
         )}
 
-        <div style={{ padding: '14px 20px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => !aiLimitReached && !aiLoading && handleTabSwitch('ai')}
-            style={{ padding: '7px 14px', borderRadius: 20, border: '1.5px solid', fontSize: '0.76rem', fontWeight: 700,
-              cursor: (!response.ai_suggested_reply || aiLimitReached) ? 'not-allowed' : 'pointer',
-              fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
-              borderColor: tab === 'ai' ? '#b05c52' : '#e8d5cf',
-              background: tab === 'ai' ? '#f7ece9' : 'transparent',
-              color: tab === 'ai' ? '#b05c52' : aiLimitReached ? '#d0b0ac' : '#b09490',
-              opacity: !response.ai_suggested_reply ? 0.4 : 1 }}>
-            {aiLoading ? '...' : `✦ Use AI Reply${aiLimitReached ? ' (limit reached)' : replyRemaining < replyLimit ? ` (${replyRemaining} left)` : ''}`}
-          </button>
-          <button
-            onClick={() => handleTabSwitch('custom')}
-            style={{ padding: '7px 14px', borderRadius: 20, border: '1.5px solid', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer',
-              fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
-              borderColor: tab === 'custom' ? '#b05c52' : '#e8d5cf',
-              background: tab === 'custom' ? '#f7ece9' : 'transparent',
-              color: tab === 'custom' ? '#b05c52' : '#b09490' }}>
-            ✏ Write Own
-          </button>
-        </div>
-
-        <div style={{ padding: '8px 20px 0' }}>
-          <div style={{ fontSize: '0.69rem', color: '#b09490', lineHeight: 1.5 }}>
-            {tab === 'ai' ? "AI-drafted reply based on the customer's feedback. Edit before sending." : 'Write a personalised reply from scratch.'}
-          </div>
-        </div>
-
-        <div style={{ padding: '12px 20px' }}>
-          <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-            placeholder={tab === 'custom' ? 'Write your reply to the customer here...' : ''}
+        {/* Textarea */}
+        <div style={{ padding: '14px 20px 0' }}>
+          <textarea
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            placeholder="Write your reply to the customer here, or generate an AI reply below..."
             rows={6}
             style={{ width: '100%', padding: '11px 13px', border: '1.5px solid #e8d5cf', borderRadius: 10, fontSize: '0.82rem', color: '#2a1f1d', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.65, resize: 'vertical', outline: 'none', background: '#fdf6f4' }}
             onFocus={e => { e.target.style.borderColor = '#b05c52'; e.target.style.boxShadow = '0 0 0 3px rgba(176,92,82,0.08)' }}
             onBlur={e => { e.target.style.borderColor = '#e8d5cf'; e.target.style.boxShadow = 'none' }}
-            autoFocus />
+            autoFocus
+          />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
             <span style={{ fontSize: '0.65rem', color: '#b09490' }}>{replyText.length > 0 ? `${replyText.length} characters` : ''}</span>
-            {tab === 'ai' && replyText !== response.ai_suggested_reply && (
+            {aiGenerated && replyText !== response.ai_suggested_reply && (
               <button onClick={() => setReplyText(response.ai_suggested_reply || '')}
                 style={{ fontSize: '0.65rem', color: '#b05c52', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
                 ↺ Reset to AI reply
@@ -229,11 +202,40 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
           </div>
         </div>
 
-        <div style={{ margin: '0 20px 14px', background: '#fef9ec', border: '1px solid #f0d98a', borderRadius: 9, padding: '9px 12px', fontSize: '0.69rem', color: '#7a6020', lineHeight: 1.5, display: 'flex', gap: 8 }}>
+        {/* Generate AI Reply button */}
+        {canGenerateAI && (
+          <div style={{ padding: '10px 20px 0' }}>
+            {!aiGenerated ? (
+              <button
+                onClick={handleGenerateAI}
+                disabled={aiLoading}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1.5px solid #b05c52', background: aiLoading ? '#f7ece9' : '#fff', color: '#b05c52', fontSize: '0.8rem', fontWeight: 700, cursor: aiLoading ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.15s' }}>
+                {aiLoading
+                  ? <><span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⟳</span> Generating...</>
+                  : <>✦ Generate AI Reply <span style={{ fontWeight: 400, fontSize: '0.72rem', opacity: 0.75 }}>({replyRemaining} left)</span></>
+                }
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#edf4ef', border: '1px solid rgba(74,122,90,0.2)', borderRadius: 9 }}>
+                <span style={{ fontSize: '0.75rem', color: '#4a7a5a', fontWeight: 600 }}>✦ AI reply generated — edit as needed</span>
+                <button
+                  onClick={handleGenerateAI}
+                  disabled={aiLoading || replyRemaining <= 0}
+                  style={{ fontSize: '0.7rem', color: replyRemaining <= 0 ? '#b09490' : '#4a7a5a', background: 'none', border: 'none', cursor: replyRemaining <= 0 ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}>
+                  {aiLoading ? '...' : replyRemaining <= 0 ? 'Limit reached' : `↺ Regenerate (${replyRemaining} left)`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hint */}
+        <div style={{ margin: '12px 20px 14px', background: '#fef9ec', border: '1px solid #f0d98a', borderRadius: 9, padding: '9px 12px', fontSize: '0.69rem', color: '#7a6020', lineHeight: 1.5, display: 'flex', gap: 8 }}>
           <span style={{ flexShrink: 0 }}>💡</span>
           <span>Clicking "Send Reply" will open your email client with this message pre-filled.</span>
         </div>
 
+        {/* Actions */}
         <div style={{ padding: '0 20px 20px', display: 'flex', gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 9, border: '1.5px solid #e8d5cf', background: '#fff', fontSize: '0.8rem', fontWeight: 600, color: '#7a5a56', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cancel</button>
           <button onClick={handleSend} disabled={!replyText.trim()}
@@ -241,6 +243,8 @@ function ReplyModal({ response, aiUsage, onClose, onReplyUsed }: {
             ✉ Send Reply via Email
           </button>
         </div>
+
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   )
