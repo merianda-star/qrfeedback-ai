@@ -8,7 +8,7 @@ const adminSupabase = createClient(
 )
 
 const LIMITS = {
-  process: { pro: 10, business: 10 },
+  process: { pro: 4, business: 4 },
   reply:   { pro: 5,   business: 5  },
 } as const
 
