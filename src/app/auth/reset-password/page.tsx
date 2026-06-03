@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
-export default function ResetPasswordPage() {
+function ResetPasswordInner() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -23,26 +25,50 @@ export default function ResetPasswordPage() {
   const strengthColor = ['', '#b05c52', '#c4896a', '#4a7a5a']
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setValidSession(true)
-        setCheckingSession(false)
-      } else if (session) {
-        setValidSession(true)
-        setCheckingSession(false)
-      } else {
-        setCheckingSession(false)
-      }
-    })
+    async function verifyToken() {
+      // Handle token_hash from email template (stateless — works cross-device)
+      const token_hash = searchParams.get('token_hash')
+      const type = searchParams.get('type')
 
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
-      if (session) {
-        setValidSession(true)
-        setCheckingSession(false)
+      if (token_hash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash,
+          type: type as any,
+        })
+        if (!error) {
+          setValidSession(true)
+          setCheckingSession(false)
+          return
+        } else {
+          setCheckingSession(false)
+          return
+        }
       }
-    })
 
-    return () => subscription.unsubscribe()
+      // Fallback: listen for PASSWORD_RECOVERY event (same-device PKCE flow)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setValidSession(true)
+          setCheckingSession(false)
+        } else if (session) {
+          setValidSession(true)
+          setCheckingSession(false)
+        } else {
+          setCheckingSession(false)
+        }
+      })
+
+      supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
+        if (session) {
+          setValidSession(true)
+          setCheckingSession(false)
+        }
+      })
+
+      return () => subscription.unsubscribe()
+    }
+
+    verifyToken()
   }, [])
 
   async function handleReset(e: React.FormEvent) {
@@ -220,5 +246,14 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </>
+  )
+
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordInner />
+    </Suspense>
   )
 }
