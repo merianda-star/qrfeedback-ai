@@ -163,16 +163,20 @@ export default function FeedbackPage() {
     const emailToSave = customerEmail.trim()
     setSavingEmail(true)
 
-    const { data: insertedResponse, error } = await supabase.from('responses').insert({
+    // Generate ID client-side — avoids needing SELECT permission for anon after insert
+    const responseId = crypto.randomUUID()
+
+    const { error } = await supabase.from('responses').insert({
+      id: responseId,
       form_id: formId, user_id: formData.user_id, rating, answers,
       ai_processed: false, submitted_at: new Date().toISOString(),
       customer_email: emailToSave || null,
-    }).select('id').single()
+    })
     setSavingEmail(false)
     if (error) { console.error('Insert error:', error); return }
 
     // Pass response_id directly — eliminates race condition from form_id lookup
-    fetch('/api/process-ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ response_id: insertedResponse?.id, rating, answers }) }).catch(() => {})
+    fetch('/api/process-ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ response_id: responseId, rating, answers }) }).catch(() => {})
     fetch('/api/alerts/negative', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ form_id: formId }) }).catch(() => {})
 
     setScreen('thankyou-negative')
