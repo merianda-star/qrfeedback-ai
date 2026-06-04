@@ -159,9 +159,61 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
-        console.log('[webhook] invoice.payment_failed:', {
-          customer: invoice.customer,
-        })
+        console.log('[webhook] invoice.payment_failed:', { customer: invoice.customer })
+
+        const customerId = invoice.customer as string
+
+        // Find the user by customer ID
+        const { data: profile } = await adminSupabase
+          .from('profiles')
+          .select('id, email, full_name, plan')
+          .eq('stripe_customer_id', customerId)
+          .single()
+
+        if (!profile?.email) {
+          console.error('[webhook] payment_failed: no profile found for customer:', customerId)
+          break
+        }
+
+        // Send payment failed email via Resend
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'QRFeedback.ai <info@qrfeedback.ai>',
+            to: profile.email,
+            subject: 'Action required — Payment failed for your QRFeedback.ai subscription',
+            html: `
+              <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; color: #2a1f1d;">
+                <h2 style="font-size: 1.3rem; margin-bottom: 8px;">Payment failed</h2>
+                <p style="color: #7a5a56; line-height: 1.6; margin-bottom: 16px;">
+                  Hi ${profile.full_name || 'there'},<br/><br/>
+                  We were unable to process your payment for your QRFeedback.ai 
+                  <strong>${profile.plan}</strong> plan subscription. 
+                  This can happen if your card expired or has insufficient funds.
+                </p>
+                <p style="color: #7a5a56; line-height: 1.6; margin-bottom: 24px;">
+                  We will retry the payment automatically. To avoid losing access to your 
+                  plan features, please update your payment method as soon as possible.
+                </p>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profile" 
+                   style="display: inline-block; padding: 12px 24px; background: #b05c52; color: #fff; 
+                          border-radius: 8px; text-decoration: none; font-weight: 600; margin-bottom: 24px;">
+                  Update Payment Method →
+                </a>
+                <p style="font-size: 0.75rem; color: #b09490; line-height: 1.6;">
+                  If your payment continues to fail, your account will be downgraded to the free plan. 
+                  If you need help, reply to this email or contact us at info@qrfeedback.ai.
+                </p>
+              </div>
+            `,
+          }),
+        }).catch(err => console.error('[webhook] failed to send payment failed email:', err))
+
+        console.log('[webhook] payment failed email sent to:', profile.email)
         break
       }
 
