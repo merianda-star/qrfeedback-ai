@@ -2,7 +2,7 @@
 // null = unlimited
 
 export const RESPONSE_LIMITS: Record<string, number | null> = {
-  free:     5,
+  free:     50,
   pro:      1000,
   business: null,
 }
