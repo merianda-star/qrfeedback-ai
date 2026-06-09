@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qrfeedback-v1';
+const CACHE_NAME = 'qrfeedback-v2';
 const STATIC_ASSETS = ['/logo.png', '/favicon.ico', '/android-chrome-192x192.png'];
 
 self.addEventListener('install', (event) => {
@@ -28,6 +28,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
     url.pathname.startsWith('/dashboard') ||
+    url.pathname.startsWith('/feedback/') ||
     url.pathname.startsWith('/_next/') ||
     url.origin !== self.location.origin
   ) return;
